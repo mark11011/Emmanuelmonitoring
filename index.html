@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emmanuel Fellowship — Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Emmanuel Fellowship</h1>
+      <p>Attendance and member registry</p>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="active" data-view="checkin">Check in</button>
+    <button data-view="roster">Roster</button>
+    <button data-view="dashboard">Dashboard</button>
+  </nav>
+
+  <!-- CHECK IN -->
+  <div class="view active" id="view-checkin">
+    <span class="date-label" id="today-label"></span>
+    <div class="search-row">
+      <input type="text" id="checkin-search" placeholder="Search your name...">
+    </div>
+    <div class="member-grid" id="checkin-grid"></div>
+  </div>
+
+  <!-- ROSTER -->
+  <div class="view" id="view-roster">
+    <div id="roster-lock"></div>
+    <div id="roster-content" style="display:none;">
+      <div class="toolbar">
+        <input type="text" id="roster-search" placeholder="Search members...">
+        <button class="btn-primary" id="add-member-btn" style="white-space:nowrap;">+ Add member</button>
+        <button class="btn-secondary" id="roster-lock-btn" style="white-space:nowrap;">Lock</button>
+      </div>
+      <div id="roster-list"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view" id="view-dashboard">
+    <div id="dashboard-lock"></div>
+    <div id="dashboard-content" style="display:none;">
+      <div class="toolbar">
+        <input type="date" id="dash-date" style="flex:1;">
+        <button class="btn-secondary" id="dashboard-lock-btn" style="white-space:nowrap;">Lock</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="label">Present</div><div class="value" id="stat-present">0</div></div>
+        <div class="stat-card"><div class="label">Total members</div><div class="value" id="stat-total">0</div></div>
+        <div class="stat-card"><div class="label">Attendance</div><div class="value" id="stat-pct">0%</div></div>
+      </div>
+      <div class="section-title">By ministry</div>
+      <div id="ministry-breakdown"></div>
+      <div class="section-title">Present</div>
+      <div class="attend-list" id="present-list"></div>
+      <div class="section-title">Absent</div>
+      <div class="attend-list" id="absent-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Member modal -->
+<div class="modal-backdrop" id="member-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add member</h2>
+    <input type="hidden" id="member-id">
+    <div class="field">
+      <label>Full name</label>
+      <input type="text" id="member-name" placeholder="Juan Dela Cruz">
+    </div>
+    <div class="field">
+      <label>Birthdate</label>
+      <input type="date" id="member-birthdate">
+    </div>
+    <div class="field">
+      <label>Ministry</label>
+      <select id="member-ministry">
+        <option>Praise and Worship</option>
+        <option>Ushering</option>
+        <option>Media and Tech</option>
+        <option>Kids Ministry</option>
+        <option>Discipleship and Small Groups</option>
+        <option>Outreach and Missions</option>
+        <option>Hospitality</option>
+        <option>Prayer Team</option>
+        <option>Administration</option>
+        <option>None yet</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Contact (phone or email)</label>
+      <input type="text" id="member-contact" placeholder="0917 000 0000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="style.css"></script>
+</body>
+</html>
