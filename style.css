@@ -75,13 +75,23 @@
     cursor:pointer;
     position:relative;
     transition:border-color .15s, transform .1s;
-    text-align:left;
+    text-align:center;
   }
   .member-card:hover{border-color:var(--gold-soft);}
   .member-card:active{transform:scale(0.98);}
   .member-card.checked{border-color:var(--gold);background:linear-gradient(180deg, rgba(201,162,39,0.14), rgba(201,162,39,0.05));}
   .member-card .name{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 0 3px;}
   .member-card .ministry{font-size:12px;color:var(--sage-soft);margin:0;}
+  .member-photo{
+    width:72px;
+    height:72px;
+    object-fit:cover;
+    border-radius:50%;
+    display:block;
+    margin:0 auto 12px;
+    border:2px solid var(--gold);
+    background:var(--ink-3);
+  }
   .seal{
     position:absolute; top:10px; right:10px;
     width:26px;height:26px;
@@ -122,6 +132,7 @@
     border-radius:10px; cursor:pointer; font-family:'Inter',sans-serif;
   }
   .btn-primary:hover{background:var(--gold-soft);}
+  .btn-primary:disabled{opacity:0.6;cursor:default;}
   .btn-secondary{
     background:transparent; color:var(--ivory); border:1px solid var(--ink-3);
     font-size:14px; padding:10px 16px; border-radius:10px; cursor:pointer;

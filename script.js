@@ -4,6 +4,14 @@ let leaderPasscodeHash = null;
 let leaderUnlocked = false;
 const todayStr = () => new Date().toISOString().slice(0,10);
 
+const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
+    <rect width="72" height="72" rx="36" fill="#2E3D5E"/>
+    <circle cx="36" cy="28" r="14" fill="#93A0B8"/>
+    <path d="M12 62c4-14 16-20 24-20s20 6 24 20" fill="#93A0B8"/>
+  </svg>`
+);
+
 function simpleHash(str){
   let h = 0;
   for(let i=0;i<str.length;i++){ h = ((h<<5)-h+str.charCodeAt(i))|0; }
@@ -20,32 +28,89 @@ function calcAge(birthdate){
   return age;
 }
 
+// ---- Supabase data layer ----
 async function loadData(){
   try{
-    const m = await window.storage.get('members-roster', true);
-    members = m ? JSON.parse(m.value) : [];
-  }catch(e){ members = []; }
+    const { data, error } = await window.db.from('members').select('*').order('name');
+    if(error) throw error;
+    members = (data || []).map(m => ({
+      id: m.id, name: m.name, birthdate: m.birthdate || '',
+      ministry: m.ministry || '', contact: m.contact || '', photo_url: m.photo_url || ''
+    }));
+  }catch(e){ console.error('load members failed', e); members = []; }
+
   try{
-    const a = await window.storage.get('attendance-log', true);
-    attendance = a ? JSON.parse(a.value) : [];
-  }catch(e){ attendance = []; }
+    const { data, error } = await window.db.from('attendance').select('*');
+    if(error) throw error;
+    attendance = (data || []).map(r => ({ memberId: r.member_id, date: r.date, timestamp: r.ts }));
+  }catch(e){ console.error('load attendance failed', e); attendance = []; }
+
   try{
-    const p = await window.storage.get('leader-passcode', true);
-    leaderPasscodeHash = p ? p.value : null;
+    const { data, error } = await window.db.from('app_settings')
+      .select('value').eq('key','leader-passcode').maybeSingle();
+    if(error) throw error;
+    leaderPasscodeHash = data ? data.value : null;
   }catch(e){ leaderPasscodeHash = null; }
 }
 
-async function saveMembers(){
-  try{ await window.storage.set('members-roster', JSON.stringify(members), true); }
-  catch(e){ console.error('save members failed', e); }
+async function upsertMember(member){
+  try{
+    const { error } = await window.db.from('members').upsert({
+      id: member.id,
+      name: member.name,
+      birthdate: member.birthdate || null,
+      ministry: member.ministry,
+      contact: member.contact,
+      photo_url: member.photo_url || null
+    });
+    if(error) throw error;
+    return true;
+  }catch(e){ console.error('save member failed', e); return false; }
 }
-async function saveAttendance(){
-  try{ await window.storage.set('attendance-log', JSON.stringify(attendance), true); }
-  catch(e){ console.error('save attendance failed', e); }
+
+async function deleteMemberRow(id){
+  try{
+    const { error } = await window.db.from('members').delete().eq('id', id);
+    if(error) throw error;
+    return true;
+  }catch(e){ console.error('delete member failed', e); return false; }
+}
+
+async function insertAttendance(memberId, date, ts){
+  try{
+    const { error } = await window.db.from('attendance').insert({ member_id: memberId, date, ts });
+    if(error) throw error;
+    return true;
+  }catch(e){ console.error('save attendance failed', e); return false; }
+}
+
+async function savePasscode(hash){
+  try{
+    const { error } = await window.db.from('app_settings').upsert({ key: 'leader-passcode', value: hash });
+    if(error) throw error;
+    return true;
+  }catch(e){ console.error('save passcode failed', e); return false; }
+}
+
+async function uploadPhoto(file, memberId){
+  try{
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${memberId}_${Date.now()}.${ext}`;
+    const { error } = await window.db.storage.from('member-photos').upload(path, file, { upsert: true });
+    if(error) throw error;
+    const { data } = window.db.storage.from('member-photos').getPublicUrl(path);
+    return data.publicUrl;
+  }catch(e){ console.error('photo upload failed', e); return null; }
 }
 
 function isCheckedIn(memberId, date){
   return attendance.some(r => r.memberId === memberId && r.date === date);
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
 }
 
 // ---- Tabs ----
@@ -82,26 +147,28 @@ function renderCheckin(){
     const card = document.createElement('button');
     card.className = 'member-card' + (checked ? ' checked' : '');
     card.innerHTML = `
+      <img class="member-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
+           onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
       <p class="name">${escapeHtml(m.name)}</p>
       <p class="ministry">${escapeHtml(m.ministry || '')}</p>
       <span class="seal"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="12"/><path d="M9 15l4 4 8-9" stroke="var(--gold)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     `;
     card.addEventListener('click', async ()=>{
       if(isCheckedIn(m.id, today)) return;
-      attendance.push({memberId:m.id, date:today, timestamp:Date.now()});
       card.classList.add('checked','stamp-anim');
-      await saveAttendance();
+      const ts = Date.now();
+      const ok = await insertAttendance(m.id, today, ts);
+      if(ok){
+        attendance.push({memberId:m.id, date:today, timestamp:ts});
+      }else{
+        card.classList.remove('checked','stamp-anim');
+        alert('Could not save check-in. Check your connection and try again.');
+      }
     });
     grid.appendChild(card);
   });
 }
 document.getElementById('checkin-search').addEventListener('input', renderCheckin);
-
-function escapeHtml(str){
-  const d = document.createElement('div');
-  d.textContent = str || '';
-  return d.innerHTML;
-}
 
 // ---- Leader lock gate ----
 function renderLockScreen(lockElId, contentElId, onUnlocked){
@@ -128,9 +195,10 @@ function renderLockScreen(lockElId, contentElId, onUnlocked){
       const confirmVal = document.getElementById(`pc-confirm-${lockElId}`).value;
       if(!val || val.length < 4){ errEl.textContent = 'Use at least 4 characters.'; return; }
       if(val !== confirmVal){ errEl.textContent = 'Passcodes do not match.'; return; }
-      leaderPasscodeHash = simpleHash(val);
-      try{ await window.storage.set('leader-passcode', leaderPasscodeHash, true); }
-      catch(e){ errEl.textContent = 'Could not save passcode. Try again.'; return; }
+      const hash = simpleHash(val);
+      const ok = await savePasscode(hash);
+      if(!ok){ errEl.textContent = 'Could not save passcode. Check your connection.'; return; }
+      leaderPasscodeHash = hash;
       leaderUnlocked = true;
       contentEl.style.display = 'block';
       lockEl.style.display = 'none';
@@ -213,9 +281,11 @@ function renderRoster(){
   list.querySelectorAll('[data-del]').forEach(b=>{
     b.addEventListener('click', async ()=>{
       if(!confirm('Remove this member from the roster?')) return;
+      const ok = await deleteMemberRow(b.dataset.del);
+      if(!ok){ alert('Could not delete member. Check your connection.'); return; }
       members = members.filter(m=>m.id !== b.dataset.del);
-      await saveMembers();
       renderRoster();
+      renderCheckin();
     });
   });
 }
@@ -226,6 +296,7 @@ const modal = document.getElementById('member-modal');
 function openMemberModal(id){
   document.getElementById('modal-title').textContent = id ? 'Edit member' : 'Add member';
   document.getElementById('member-id').value = id || '';
+  document.getElementById('member-photos').value = '';
   if(id){
     const m = members.find(x=>x.id === id);
     document.getElementById('member-name').value = m.name || '';
@@ -245,20 +316,38 @@ document.getElementById('modal-cancel').addEventListener('click', ()=> modal.cla
 document.getElementById('modal-save').addEventListener('click', async ()=>{
   const name = document.getElementById('member-name').value.trim();
   if(!name){ alert('Enter a name.'); return; }
-  const id = document.getElementById('member-id').value;
+  const existingId = document.getElementById('member-id').value;
+  const id = existingId || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+  const existing = members.find(x=>x.id === id);
+
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  let photo_url = existing ? (existing.photo_url || null) : null;
+  const file = document.getElementById('member-photos').files[0];
+  if(file){
+    const uploaded = await uploadPhoto(file, id);
+    if(uploaded) photo_url = uploaded;
+  }
+
   const data = {
+    id,
     name,
     birthdate: document.getElementById('member-birthdate').value,
     ministry: document.getElementById('member-ministry').value,
-    contact: document.getElementById('member-contact').value.trim()
+    contact: document.getElementById('member-contact').value.trim(),
+    photo_url
   };
-  if(id){
-    const m = members.find(x=>x.id === id);
-    Object.assign(m, data);
-  }else{
-    members.push({id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), ...data});
-  }
-  await saveMembers();
+
+  const ok = await upsertMember(data);
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save';
+  if(!ok){ alert('Could not save member. Check your connection and try again.'); return; }
+
+  if(existing){ Object.assign(existing, data); }
+  else{ members.push(data); }
+
   modal.classList.remove('active');
   renderRoster();
   renderCheckin();
