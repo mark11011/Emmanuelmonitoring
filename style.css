@@ -80,7 +80,7 @@
   .member-card:hover{border-color:var(--gold-soft);}
   .member-card:active{transform:scale(0.98);}
   .member-card.checked{border-color:var(--gold);background:linear-gradient(180deg, rgba(201,162,39,0.14), rgba(201,162,39,0.05));}
-  .member-card .name{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 0 3px;}
+  .member-card .name{font-family:'Fraunces',serif;font-size:16px; color: white; font-weight:600;margin:0 0 3px;}
   .member-card .ministry{font-size:12px;color:var(--sage-soft);margin:0;}
   .member-photo{
     width:72px;
