@@ -36,9 +36,9 @@ document.addEventListener('click', (e)=>{
 });
 
 const MINISTRIES = [
-  'Praise and Worship','Ushering','Media and Tech','Kids Ministry',
-  'Discipleship and Small Groups','Outreach and Missions',
-  'Hospitality','Prayer Team','Administration'
+  'Praise and Worship','Ushering','Media and Tech','Teacher',
+  'Discipleship and Small Group Leader','Outreach and Missions',
+  'Deacon','Prayer Team','Administration'
 ];
 
 function renderMinistryCheckboxes(containerId, prefix){
