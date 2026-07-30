@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Emmanuel Presbyterian Montalban Church</title>
+<title>Emmanuel Presbyterian Montalban Church — Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -13,15 +13,39 @@
 <div class="app">
   <div class="header">
     <img src="images/emmanuellogo.jpg" alt="Emmanuel Presbyterian Montalban Church logo" class="logo">
-    <div>
+    <div class="header-title">
       <h1>Emmanuel Presbyterian Montalban Church</h1>
       <p>Attendance and member registry</p>
+    </div>
+    <div class="menu-wrapper">
+      <button id="menu-toggle" class="menu-btn" title="Menu" aria-label="Menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="dropdown-menu" id="dropdown-menu">
+        <div class="dropdown-row">
+          <span>Light mode</span>
+          <label class="switch">
+            <input type="checkbox" id="theme-toggle-checkbox">
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-about">
+          <p class="dropdown-about-title">Emmanuel Presbyterian Montalban Church</p>
+          <p class="dropdown-about-address">Kasama Mission Center, Villa San Isidro, San Isidro, Rodriguez, Philippines, 1860</p>
+          <a href="https://www.facebook.com/kasamachurch" target="_blank" rel="noopener noreferrer" class="dropdown-fb-link">
+            Visit our Facebook page
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 
   <nav class="tabs">
     <button class="active" data-view="checkin">Check in</button>
-    <button data-view="roster">Member</button>
+    <button data-view="roster">Roster</button>
     <button data-view="dashboard">Dashboard</button>
   </nav>
 
@@ -43,6 +67,13 @@
         <button class="btn-primary" id="add-member-btn" style="white-space:nowrap;">+ Add member</button>
         <button class="btn-secondary" id="roster-lock-btn" style="white-space:nowrap;">Lock</button>
       </div>
+      <div class="filter-tabs" id="roster-filter">
+        <button class="filter-btn active" data-filter="All">All</button>
+        <button class="filter-btn" data-filter="Member">Members</button>
+        <button class="filter-btn" data-filter="Attendee">Attendees</button>
+        <button class="filter-btn" data-filter="Visitor">Visitors</button>
+        <button class="filter-btn" data-filter="Scholar">Scholars</button>
+      </div>
       <div id="roster-list"></div>
     </div>
   </div>
@@ -62,6 +93,8 @@
       </div>
       <div class="section-title">By ministry</div>
       <div id="ministry-breakdown"></div>
+      <div class="section-title">Scholars</div>
+      <div id="scholar-breakdown"></div>
       <div class="section-title">Present</div>
       <div class="attend-list" id="present-list"></div>
       <div class="section-title">Absent</div>
@@ -88,23 +121,43 @@
       <input type="date" id="member-birthdate">
     </div>
     <div class="field">
-      <label>Ministry</label>
-      <select id="member-ministry">
-        <option>Pastor</option>
-        <option>Ushering</option>
-        <option>Media and Tech</option>
-        <option>Praise and Worship</option>
-        <option>Discipleship and Small Groups Leader</option>
-        <option>Teacher</option>
-        <option>Hospitality</option>
-        <option>Prayer Team</option>
-        <option>Administration</option>
-        <option>None yet</option>
-      </select>
+      <label>Member type</label>
+      <div class="radio-group" id="member-type-group">
+        <label><input type="radio" name="member-type" value="Member" checked> Member</label>
+        <label><input type="radio" name="member-type" value="Attendee"> Attendee</label>
+        <label><input type="radio" name="member-type" value="Visitor"> Visitor</label>
+      </div>
     </div>
     <div class="field">
-      <label>Contact (phone or email)</label>
-      <input type="text" id="member-contact" placeholder="0917 000 0000">
+      <label class="checkbox-label"><input type="checkbox" id="member-scholar"> Church scholar</label>
+    </div>
+    <div class="field">
+      <label>Current ministry (select all that apply)</label>
+      <div class="checkbox-group" id="ministry-current-group"></div>
+    </div>
+    <div class="field member-only-field" id="talents-field">
+      <label>Talents and skills</label>
+      <textarea id="member-talents" rows="2" placeholder="e.g. singing, graphic design, teaching, hosting"></textarea>
+    </div>
+    <div class="field member-only-field" id="desired-ministry-field">
+      <label>Ministry they'd like to join (select all that apply)</label>
+      <div class="checkbox-group" id="ministry-desired-group"></div>
+    </div>
+    <div class="field">
+      <label>Cellphone number</label>
+      <input type="text" id="member-cellphone" placeholder="0917 000 0000">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="member-email" placeholder="juan@email.com">
+    </div>
+    <div class="field">
+      <label>Facebook</label>
+      <input type="text" id="member-facebook" placeholder="facebook.com/username">
+    </div>
+    <div class="field">
+      <label>Instagram</label>
+      <input type="text" id="member-instagram" placeholder="@username">
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>

@@ -2,7 +2,64 @@ let members = [];
 let attendance = [];
 let leaderPasscodeHash = null;
 let leaderUnlocked = false;
+let rosterFilter = 'All';
 const todayStr = () => new Date().toISOString().slice(0,10);
+
+// ---- Theme toggle (per-device preference, not shared church data) ----
+function applyTheme(theme){
+  document.body.classList.toggle('light-theme', theme === 'light');
+  const checkbox = document.getElementById('theme-toggle-checkbox');
+  if(checkbox) checkbox.checked = (theme === 'light');
+}
+(function initTheme(){
+  let saved = 'dark';
+  try{ saved = localStorage.getItem('theme-preference') || 'dark'; }catch(e){}
+  applyTheme(saved);
+})();
+document.getElementById('theme-toggle-checkbox').addEventListener('change', (e)=>{
+  const next = e.target.checked ? 'light' : 'dark';
+  try{ localStorage.setItem('theme-preference', next); }catch(e){}
+  applyTheme(next);
+});
+
+// ---- Header dropdown menu ----
+const menuToggle = document.getElementById('menu-toggle');
+const dropdownMenu = document.getElementById('dropdown-menu');
+menuToggle.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  dropdownMenu.classList.toggle('show');
+});
+document.addEventListener('click', (e)=>{
+  if(!dropdownMenu.contains(e.target) && e.target !== menuToggle){
+    dropdownMenu.classList.remove('show');
+  }
+});
+
+const MINISTRIES = [
+  'Praise and Worship','Ushering','Media and Tech','Kids Ministry',
+  'Discipleship and Small Groups','Outreach and Missions',
+  'Hospitality','Prayer Team','Administration'
+];
+
+function renderMinistryCheckboxes(containerId, prefix){
+  const el = document.getElementById(containerId);
+  el.innerHTML = MINISTRIES.map(m => {
+    const cid = `${prefix}-${m.replace(/\s+/g,'-').toLowerCase()}`;
+    return `<label><input type="checkbox" id="${cid}" value="${m}"> ${m}</label>`;
+  }).join('');
+}
+renderMinistryCheckboxes('ministry-current-group', 'cur');
+renderMinistryCheckboxes('ministry-desired-group', 'des');
+
+function getCheckedMinistries(containerId){
+  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(i => i.value);
+}
+function setCheckedMinistries(containerId, list){
+  const set = new Set((list || '').split(',').map(s=>s.trim()).filter(Boolean));
+  document.querySelectorAll(`#${containerId} input`).forEach(i=>{
+    i.checked = set.has(i.value);
+  });
+}
 
 const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
@@ -35,7 +92,13 @@ async function loadData(){
     if(error) throw error;
     members = (data || []).map(m => ({
       id: m.id, name: m.name, birthdate: m.birthdate || '',
-      ministry: m.ministry || '', contact: m.contact || '', photo_url: m.photo_url || ''
+      ministry: m.ministry || '', photo_url: m.photo_url || '',
+      member_type: m.member_type || 'Member',
+      is_scholar: !!m.is_scholar,
+      talents_skills: m.talents_skills || '',
+      desired_ministry: m.desired_ministry || '',
+      cellphone: m.cellphone || '', email: m.email || '',
+      facebook: m.facebook || '', instagram: m.instagram || ''
     }));
   }catch(e){ console.error('load members failed', e); members = []; }
 
@@ -60,8 +123,15 @@ async function upsertMember(member){
       name: member.name,
       birthdate: member.birthdate || null,
       ministry: member.ministry,
-      contact: member.contact,
-      photo_url: member.photo_url || null
+      photo_url: member.photo_url || null,
+      member_type: member.member_type || 'Member',
+      is_scholar: !!member.is_scholar,
+      talents_skills: member.talents_skills || null,
+      desired_ministry: member.desired_ministry || null,
+      cellphone: member.cellphone || null,
+      email: member.email || null,
+      facebook: member.facebook || null,
+      instagram: member.instagram || null
     });
     if(error) throw error;
     return true;
@@ -82,6 +152,14 @@ async function insertAttendance(memberId, date, ts){
     if(error) throw error;
     return true;
   }catch(e){ console.error('save attendance failed', e); return false; }
+}
+
+async function deleteAttendance(memberId, date){
+  try{
+    const { error } = await window.db.from('attendance').delete().eq('member_id', memberId).eq('date', date);
+    if(error) throw error;
+    return true;
+  }catch(e){ console.error('remove attendance failed', e); return false; }
 }
 
 async function savePasscode(hash){
@@ -151,10 +229,22 @@ function renderCheckin(){
            onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
       <p class="name">${escapeHtml(m.name)}</p>
       <p class="ministry">${escapeHtml(m.ministry || '')}</p>
+      <span class="undo-hint">Tap again to undo</span>
       <span class="seal"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="12"/><path d="M9 15l4 4 8-9" stroke="var(--gold)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     `;
     card.addEventListener('click', async ()=>{
-      if(isCheckedIn(m.id, today)) return;
+      const alreadyChecked = isCheckedIn(m.id, today);
+      if(alreadyChecked){
+        if(!confirm(`Undo check-in for ${m.name}?`)) return;
+        const ok = await deleteAttendance(m.id, today);
+        if(ok){
+          attendance = attendance.filter(r => !(r.memberId === m.id && r.date === today));
+          card.classList.remove('checked','stamp-anim');
+        }else{
+          alert('Could not undo check-in. Check your connection and try again.');
+        }
+        return;
+      }
       card.classList.add('checked','stamp-anim');
       const ts = Date.now();
       const ok = await insertAttendance(m.id, today, ts);
@@ -254,7 +344,12 @@ function renderRoster(){
   const q = document.getElementById('roster-search').value.trim().toLowerCase();
   const list = document.getElementById('roster-list');
   list.innerHTML = '';
-  const filtered = members.filter(m => m.name.toLowerCase().includes(q));
+  const filtered = members.filter(m => {
+    if(!m.name.toLowerCase().includes(q)) return false;
+    if(rosterFilter === 'All') return true;
+    if(rosterFilter === 'Scholar') return !!m.is_scholar;
+    return (m.member_type || 'Member') === rosterFilter;
+  });
   if(filtered.length === 0){
     list.innerHTML = '<div class="empty">No members found.</div>';
     return;
@@ -263,14 +358,24 @@ function renderRoster(){
     const age = calcAge(m.birthdate);
     const row = document.createElement('div');
     row.className = 'roster-row';
+    const contactBits = [m.cellphone, m.email, m.facebook, m.instagram].filter(Boolean);
     row.innerHTML = `
-      <div class="info">
-        <div class="name">${escapeHtml(m.name)}</div>
-        <div class="meta">${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}${m.contact ? ' &middot; ' + escapeHtml(m.contact) : ''}</div>
+      <div class="roster-header">
+        <img class="roster-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
+             onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
+        <div class="roster-name-block">
+          <div class="name">${escapeHtml(m.name)}${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}</div>
+        </div>
+        <div class="actions">
+          <button class="icon-btn" data-edit="${m.id}">&#9998;</button>
+          <button class="icon-btn" data-del="${m.id}">&times;</button>
+        </div>
       </div>
-      <div class="actions">
-        <button class="icon-btn" data-edit="${m.id}">&#9998;</button>
-        <button class="icon-btn" data-del="${m.id}">&times;</button>
+      <div class="info">
+        <div class="meta">${escapeHtml(m.member_type || 'Member')} &middot; ${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}</div>
+        ${contactBits.length ? `<div class="meta">${contactBits.map(escapeHtml).join(' &middot; ')}</div>` : ''}
+        ${m.talents_skills ? `<div class="meta">Talents: ${escapeHtml(m.talents_skills)}</div>` : ''}
+        ${m.desired_ministry ? `<div class="meta">Interested in: ${escapeHtml(m.desired_ministry)}</div>` : ''}
       </div>
     `;
     list.appendChild(row);
@@ -291,7 +396,26 @@ function renderRoster(){
 }
 document.getElementById('roster-search').addEventListener('input', renderRoster);
 
+document.querySelectorAll('#roster-filter .filter-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#roster-filter .filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    rosterFilter = btn.dataset.filter;
+    renderRoster();
+  });
+});
+
 // ---- Modal ----
+function toggleMemberOnlyFields(){
+  const selected = document.querySelector('input[name="member-type"]:checked').value;
+  const show = selected === 'Member';
+  document.getElementById('talents-field').classList.toggle('show', show);
+  document.getElementById('desired-ministry-field').classList.toggle('show', show);
+}
+document.querySelectorAll('input[name="member-type"]').forEach(r=>{
+  r.addEventListener('change', toggleMemberOnlyFields);
+});
+
 const modal = document.getElementById('member-modal');
 function openMemberModal(id){
   document.getElementById('modal-title').textContent = id ? 'Edit member' : 'Add member';
@@ -301,14 +425,29 @@ function openMemberModal(id){
     const m = members.find(x=>x.id === id);
     document.getElementById('member-name').value = m.name || '';
     document.getElementById('member-birthdate').value = m.birthdate || '';
-    document.getElementById('member-ministry').value = m.ministry || 'Praise and Worship';
-    document.getElementById('member-contact').value = m.contact || '';
+    setCheckedMinistries('ministry-current-group', m.ministry);
+    document.querySelector(`input[name="member-type"][value="${m.member_type || 'Member'}"]`).checked = true;
+    document.getElementById('member-scholar').checked = !!m.is_scholar;
+    document.getElementById('member-talents').value = m.talents_skills || '';
+    setCheckedMinistries('ministry-desired-group', m.desired_ministry);
+    document.getElementById('member-cellphone').value = m.cellphone || '';
+    document.getElementById('member-email').value = m.email || '';
+    document.getElementById('member-facebook').value = m.facebook || '';
+    document.getElementById('member-instagram').value = m.instagram || '';
   }else{
     document.getElementById('member-name').value = '';
     document.getElementById('member-birthdate').value = '';
-    document.getElementById('member-ministry').value = 'Praise and Worship';
-    document.getElementById('member-contact').value = '';
+    setCheckedMinistries('ministry-current-group', '');
+    document.querySelector('input[name="member-type"][value="Member"]').checked = true;
+    document.getElementById('member-scholar').checked = false;
+    document.getElementById('member-talents').value = '';
+    setCheckedMinistries('ministry-desired-group', '');
+    document.getElementById('member-cellphone').value = '';
+    document.getElementById('member-email').value = '';
+    document.getElementById('member-facebook').value = '';
+    document.getElementById('member-instagram').value = '';
   }
+  toggleMemberOnlyFields();
   modal.classList.add('active');
 }
 document.getElementById('add-member-btn').addEventListener('click', ()=> openMemberModal(null));
@@ -331,13 +470,21 @@ document.getElementById('modal-save').addEventListener('click', async ()=>{
     if(uploaded) photo_url = uploaded;
   }
 
+  const memberType = document.querySelector('input[name="member-type"]:checked').value;
   const data = {
     id,
     name,
     birthdate: document.getElementById('member-birthdate').value,
-    ministry: document.getElementById('member-ministry').value,
-    contact: document.getElementById('member-contact').value.trim(),
-    photo_url
+    ministry: getCheckedMinistries('ministry-current-group').join(', '),
+    photo_url,
+    member_type: memberType,
+    is_scholar: document.getElementById('member-scholar').checked,
+    talents_skills: memberType === 'Member' ? document.getElementById('member-talents').value.trim() : '',
+    desired_ministry: memberType === 'Member' ? getCheckedMinistries('ministry-desired-group').join(', ') : '',
+    cellphone: document.getElementById('member-cellphone').value.trim(),
+    email: document.getElementById('member-email').value.trim(),
+    facebook: document.getElementById('member-facebook').value.trim(),
+    instagram: document.getElementById('member-instagram').value.trim()
   };
 
   const ok = await upsertMember(data);
@@ -369,10 +516,13 @@ function renderDashboard(){
 
   const byMinistry = {};
   members.forEach(m=>{
-    const key = m.ministry || 'None yet';
-    byMinistry[key] = byMinistry[key] || {total:0, present:0};
-    byMinistry[key].total++;
-    if(presentIds.includes(m.id)) byMinistry[key].present++;
+    const list = (m.ministry || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const keys = list.length ? list : ['None yet'];
+    keys.forEach(key=>{
+      byMinistry[key] = byMinistry[key] || {total:0, present:0};
+      byMinistry[key].total++;
+      if(presentIds.includes(m.id)) byMinistry[key].present++;
+    });
   });
   const breakdown = document.getElementById('ministry-breakdown');
   breakdown.innerHTML = '';
@@ -390,10 +540,47 @@ function renderDashboard(){
     breakdown.innerHTML = '<div class="empty">No members yet.</div>';
   }
 
+  const scholarMembers = members.filter(m => m.is_scholar);
+  const scholarPresentCount = scholarMembers.filter(m => presentIds.includes(m.id)).length;
+  const scholarBreakdown = document.getElementById('scholar-breakdown');
+  if(scholarMembers.length === 0){
+    scholarBreakdown.innerHTML = '<div class="empty">No scholars on the roster yet.</div>';
+  }else{
+    const scholarPct = Math.round((scholarPresentCount / scholarMembers.length) * 100);
+    scholarBreakdown.innerHTML = `
+      <div class="ministry-bar-row">
+        <div class="ministry-bar-label"><span>Scholars</span><span>${scholarPresentCount}/${scholarMembers.length}</span></div>
+        <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${scholarPct}%"></div></div>
+      </div>
+    `;
+  }
+
   const presentList = document.getElementById('present-list');
-  presentList.innerHTML = presentMembers.length
-    ? presentMembers.map(m=>`<span class="pill">${escapeHtml(m.name)}</span>`).join('')
-    : '<span class="empty" style="padding:6px 0;">No one checked in yet for this date.</span>';
+  presentList.innerHTML = '';
+  if(presentMembers.length === 0){
+    presentList.innerHTML = '<span class="empty" style="padding:6px 0;">No one checked in yet for this date.</span>';
+  }else{
+    presentMembers.forEach(m=>{
+      const pill = document.createElement('button');
+      pill.className = 'pill pill-clickable';
+      pill.textContent = m.name;
+      pill.title = 'Click to mark absent';
+      pill.addEventListener('click', async ()=>{
+        if(!confirm(`Mark ${m.name} as absent for this date?`)) return;
+        const ok = await deleteAttendance(m.id, date);
+        if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
+        const { data, error } = await window.db.from('attendance').select('*');
+        if(!error){
+          attendance = (data || []).map(r => ({ memberId: r.member_id, date: r.date, timestamp: r.ts }));
+        }else{
+          attendance = attendance.filter(r => !(r.memberId === m.id && r.date === date));
+        }
+        renderDashboard();
+        renderCheckin();
+      });
+      presentList.appendChild(pill);
+    });
+  }
 
   const absentList = document.getElementById('absent-list');
   absentList.innerHTML = absentMembers.length
