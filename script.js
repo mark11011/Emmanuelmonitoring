@@ -38,7 +38,7 @@ document.addEventListener('click', (e)=>{
 const MINISTRIES = [
   'Praise and Worship','Ushering','Media and Tech','Teacher',
   'Discipleship and Small Group Leader','Outreach and Missions',
-  'Deacon','Prayer Team','Administration'
+  'Deacon','Prayer Team','Administration','Tambourine Dance Team'
 ];
 
 function renderMinistryCheckboxes(containerId, prefix){
@@ -94,6 +94,7 @@ async function loadData(){
       id: m.id, name: m.name, birthdate: m.birthdate || '',
       ministry: m.ministry || '', photo_url: m.photo_url || '',
       member_type: m.member_type || 'Member',
+      status: m.status || 'Active',
       is_scholar: !!m.is_scholar,
       talents_skills: m.talents_skills || '',
       desired_ministry: m.desired_ministry || '',
@@ -125,6 +126,7 @@ async function upsertMember(member){
       ministry: member.ministry,
       photo_url: member.photo_url || null,
       member_type: member.member_type || 'Member',
+      status: member.status || 'Active',
       is_scholar: !!member.is_scholar,
       talents_skills: member.talents_skills || null,
       desired_ministry: member.desired_ministry || null,
@@ -204,7 +206,41 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
 });
 
 // ---- Check-in view ----
+// ---- Sidebar: recent check-ins ----
+function renderSidebar(){
+  const recentEl = document.getElementById('recent-checkins');
+  if(!recentEl) return;
+
+  const today = todayStr();
+  const todayRecords = attendance.filter(r => r.date === today);
+
+  const recent = todayRecords
+    .slice()
+    .sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, 8);
+
+  if(recent.length === 0){
+    recentEl.innerHTML = '<div class="empty" style="padding:12px 0;">No check-ins yet today.</div>';
+    return;
+  }
+
+  recentEl.innerHTML = recent.map(r=>{
+    const m = members.find(x => x.id === r.memberId);
+    const name = m ? m.name : 'Unknown';
+    const timeStr = r.timestamp
+      ? new Date(r.timestamp).toLocaleTimeString('en-PH', {hour:'numeric', minute:'2-digit'})
+      : '';
+    return `
+      <div class="recent-checkin-row">
+        <span class="recent-checkin-name">${escapeHtml(name)}</span>
+        <span class="recent-checkin-time">${timeStr}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderCheckin(){
+  renderSidebar();
   const label = document.getElementById('today-label');
   label.textContent = new Date().toLocaleDateString('en-PH', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   const q = document.getElementById('checkin-search').value.trim().toLowerCase();
@@ -240,6 +276,7 @@ function renderCheckin(){
         if(ok){
           attendance = attendance.filter(r => !(r.memberId === m.id && r.date === today));
           card.classList.remove('checked','stamp-anim');
+          renderSidebar();
         }else{
           alert('Could not undo check-in. Check your connection and try again.');
         }
@@ -250,6 +287,7 @@ function renderCheckin(){
       const ok = await insertAttendance(m.id, today, ts);
       if(ok){
         attendance.push({memberId:m.id, date:today, timestamp:ts});
+        renderSidebar();
       }else{
         card.classList.remove('checked','stamp-anim');
         alert('Could not save check-in. Check your connection and try again.');
@@ -359,12 +397,13 @@ function renderRoster(){
     const row = document.createElement('div');
     row.className = 'roster-row';
     const contactBits = [m.cellphone, m.email, m.facebook, m.instagram].filter(Boolean);
+    const isActive = (m.status || 'Active') === 'Active';
     row.innerHTML = `
-      <div class="roster-header">
+      <div class="roster-header" data-view-profile="${m.id}">
         <img class="roster-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
              onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
         <div class="roster-name-block">
-          <div class="name">${escapeHtml(m.name)}${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}</div>
+          <div class="name"><span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>${escapeHtml(m.name)}${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}</div>
         </div>
         <div class="actions">
           <button class="icon-btn" data-edit="${m.id}">&#9998;</button>
@@ -372,7 +411,7 @@ function renderRoster(){
         </div>
       </div>
       <div class="info">
-        <div class="meta">${escapeHtml(m.member_type || 'Member')} &middot; ${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}</div>
+        <div class="meta">${escapeHtml(m.member_type || 'Member')} &middot; ${escapeHtml(m.status || 'Active')} &middot; ${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}</div>
         ${contactBits.length ? `<div class="meta">${contactBits.map(escapeHtml).join(' &middot; ')}</div>` : ''}
         ${m.talents_skills ? `<div class="meta">Talents: ${escapeHtml(m.talents_skills)}</div>` : ''}
         ${m.desired_ministry ? `<div class="meta">Interested in: ${escapeHtml(m.desired_ministry)}</div>` : ''}
@@ -381,10 +420,11 @@ function renderRoster(){
     list.appendChild(row);
   });
   list.querySelectorAll('[data-edit]').forEach(b=>{
-    b.addEventListener('click', ()=> openMemberModal(b.dataset.edit));
+    b.addEventListener('click', (e)=>{ e.stopPropagation(); openMemberModal(b.dataset.edit); });
   });
   list.querySelectorAll('[data-del]').forEach(b=>{
-    b.addEventListener('click', async ()=>{
+    b.addEventListener('click', async (e)=>{
+      e.stopPropagation();
       if(!confirm('Remove this member from the roster?')) return;
       const ok = await deleteMemberRow(b.dataset.del);
       if(!ok){ alert('Could not delete member. Check your connection.'); return; }
@@ -392,6 +432,9 @@ function renderRoster(){
       renderRoster();
       renderCheckin();
     });
+  });
+  list.querySelectorAll('[data-view-profile]').forEach(h=>{
+    h.addEventListener('click', ()=> openProfileModal(h.dataset.viewProfile));
   });
 }
 document.getElementById('roster-search').addEventListener('input', renderRoster);
@@ -403,6 +446,11 @@ document.querySelectorAll('#roster-filter .filter-btn').forEach(btn=>{
     rosterFilter = btn.dataset.filter;
     renderRoster();
   });
+});
+
+document.getElementById('filter-toggle-btn').addEventListener('click', function(){
+  document.getElementById('roster-filter').classList.toggle('show');
+  this.classList.toggle('open');
 });
 
 // ---- Modal ----
@@ -427,6 +475,7 @@ function openMemberModal(id){
     document.getElementById('member-birthdate').value = m.birthdate || '';
     setCheckedMinistries('ministry-current-group', m.ministry);
     document.querySelector(`input[name="member-type"][value="${m.member_type || 'Member'}"]`).checked = true;
+    document.querySelector(`input[name="member-status"][value="${m.status || 'Active'}"]`).checked = true;
     document.getElementById('member-scholar').checked = !!m.is_scholar;
     document.getElementById('member-talents').value = m.talents_skills || '';
     setCheckedMinistries('ministry-desired-group', m.desired_ministry);
@@ -439,6 +488,7 @@ function openMemberModal(id){
     document.getElementById('member-birthdate').value = '';
     setCheckedMinistries('ministry-current-group', '');
     document.querySelector('input[name="member-type"][value="Member"]').checked = true;
+    document.querySelector('input[name="member-status"][value="Active"]').checked = true;
     document.getElementById('member-scholar').checked = false;
     document.getElementById('member-talents').value = '';
     setCheckedMinistries('ministry-desired-group', '');
@@ -471,6 +521,7 @@ document.getElementById('modal-save').addEventListener('click', async ()=>{
   }
 
   const memberType = document.querySelector('input[name="member-type"]:checked').value;
+  const status = document.querySelector('input[name="member-status"]:checked').value;
   const data = {
     id,
     name,
@@ -478,6 +529,7 @@ document.getElementById('modal-save').addEventListener('click', async ()=>{
     ministry: getCheckedMinistries('ministry-current-group').join(', '),
     photo_url,
     member_type: memberType,
+    status,
     is_scholar: document.getElementById('member-scholar').checked,
     talents_skills: memberType === 'Member' ? document.getElementById('member-talents').value.trim() : '',
     desired_ministry: memberType === 'Member' ? getCheckedMinistries('ministry-desired-group').join(', ') : '',
@@ -499,6 +551,73 @@ document.getElementById('modal-save').addEventListener('click', async ()=>{
   renderRoster();
   renderCheckin();
 });
+
+// ---- Backdrop click-to-close ----
+[modal, document.getElementById('profile-modal')].forEach(backdrop=>{
+  backdrop.addEventListener('click', (e)=>{
+    if(e.target === backdrop) backdrop.classList.remove('active');
+  });
+});
+
+// ---- Profile view modal ----
+const profileModal = document.getElementById('profile-modal');
+function openProfileModal(id){
+  const m = members.find(x=>x.id === id);
+  if(!m) return;
+  const age = calcAge(m.birthdate);
+  const isActive = (m.status || 'Active') === 'Active';
+  const contactBits = [
+    m.cellphone ? `Cellphone: ${escapeHtml(m.cellphone)}` : '',
+    m.email ? `Email: ${escapeHtml(m.email)}` : '',
+    m.facebook ? `Facebook: ${escapeHtml(m.facebook)}` : '',
+    m.instagram ? `Instagram: ${escapeHtml(m.instagram)}` : ''
+  ].filter(Boolean);
+
+  document.getElementById('profile-modal-content').innerHTML = `
+    <img class="profile-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
+         onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
+    <div class="profile-name">${escapeHtml(m.name)}</div>
+    <div class="profile-tags">
+      <span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>${escapeHtml(m.status || 'Active')}
+      ${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}
+    </div>
+    <div class="profile-section">
+      <div class="label">Type &amp; age</div>
+      <div class="value">${escapeHtml(m.member_type || 'Member')}${age !== null ? ' &middot; ' + age + ' yrs old' : ''}</div>
+    </div>
+    <div class="profile-section">
+      <div class="label">Current ministry</div>
+      <div class="value">${escapeHtml(m.ministry || 'None yet')}</div>
+    </div>
+    ${m.talents_skills ? `
+    <div class="profile-section">
+      <div class="label">Talents and skills</div>
+      <div class="value">${escapeHtml(m.talents_skills)}</div>
+    </div>` : ''}
+    ${m.desired_ministry ? `
+    <div class="profile-section">
+      <div class="label">Interested in joining</div>
+      <div class="value">${escapeHtml(m.desired_ministry)}</div>
+    </div>` : ''}
+    ${contactBits.length ? `
+    <div class="profile-section">
+      <div class="label">Contact</div>
+      <div class="value">${contactBits.join('<br>')}</div>
+    </div>` : ''}
+    <div class="profile-actions">
+      <button class="btn-secondary" id="profile-close-btn">Close</button>
+      <button class="btn-primary" id="profile-edit-btn">Edit</button>
+    </div>
+  `;
+  profileModal.classList.add('active');
+  document.getElementById('profile-close-btn').addEventListener('click', ()=>{
+    profileModal.classList.remove('active');
+  });
+  document.getElementById('profile-edit-btn').addEventListener('click', ()=>{
+    profileModal.classList.remove('active');
+    openMemberModal(id);
+  });
+}
 
 // ---- Dashboard ----
 function renderDashboard(){

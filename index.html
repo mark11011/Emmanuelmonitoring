@@ -25,7 +25,7 @@
       </button>
       <div class="dropdown-menu" id="dropdown-menu">
         <div class="dropdown-row">
-          <span>Light mode</span>
+          <span>Dark mode</span>
           <label class="switch">
             <input type="checkbox" id="theme-toggle-checkbox">
             <span class="switch-slider"></span>
@@ -43,63 +43,88 @@
     </div>
   </div>
 
-  <nav class="tabs">
-    <button class="active" data-view="checkin">Check in</button>
-    <button data-view="roster">Roster</button>
-    <button data-view="dashboard">Dashboard</button>
-  </nav>
+  <div class="layout">
+    <div class="main-content">
+      <nav class="tabs">
+        <button class="active" data-view="checkin">Check in</button>
+        <button data-view="roster">Roster</button>
+        <button data-view="dashboard">Dashboard</button>
+      </nav>
 
-  <!-- CHECK IN -->
-  <div class="view active" id="view-checkin">
-    <span class="date-label" id="today-label"></span>
-    <div class="search-row">
-      <input type="text" id="checkin-search" placeholder="Search your name...">
-    </div>
-    <div class="member-grid" id="checkin-grid"></div>
-  </div>
+      <!-- CHECK IN -->
+      <div class="view active" id="view-checkin">
+        <span class="date-label" id="today-label"></span>
+        <div class="search-row">
+          <input type="text" id="checkin-search" placeholder="Search your name...">
+        </div>
+        <div class="member-grid" id="checkin-grid"></div>
+      </div>
 
-  <!-- ROSTER -->
-  <div class="view" id="view-roster">
-    <div id="roster-lock"></div>
-    <div id="roster-content" style="display:none;">
-      <div class="toolbar">
-        <input type="text" id="roster-search" placeholder="Search members...">
-        <button class="btn-primary" id="add-member-btn" style="white-space:nowrap;">+ Add member</button>
-        <button class="btn-secondary" id="roster-lock-btn" style="white-space:nowrap;">Lock</button>
+      <!-- ROSTER -->
+      <div class="view" id="view-roster">
+        <div id="roster-lock"></div>
+        <div id="roster-content" style="display:none;">
+          <div class="toolbar">
+            <input type="text" id="roster-search" placeholder="Search members...">
+            <button class="btn-primary" id="add-member-btn" style="white-space:nowrap;">+ Add member</button>
+            <button class="btn-secondary" id="roster-lock-btn" style="white-space:nowrap;">Lock</button>
+          </div>
+          <button class="filter-toggle-btn" id="filter-toggle-btn">
+            <span>Filter</span>
+            <svg class="filter-arrow" id="filter-arrow" viewBox="0 0 24 24" width="14" height="14">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="filter-tabs" id="roster-filter">
+            <button class="filter-btn active" data-filter="All">All</button>
+            <button class="filter-btn" data-filter="Member">Members</button>
+            <button class="filter-btn" data-filter="Attendee">Attendees</button>
+            <button class="filter-btn" data-filter="Visitor">Visitors</button>
+            <button class="filter-btn" data-filter="Scholar">Scholars</button>
+          </div>
+          <div id="roster-list"></div>
+        </div>
       </div>
-      <div class="filter-tabs" id="roster-filter">
-        <button class="filter-btn active" data-filter="All">All</button>
-        <button class="filter-btn" data-filter="Member">Members</button>
-        <button class="filter-btn" data-filter="Attendee">Attendees</button>
-        <button class="filter-btn" data-filter="Visitor">Visitors</button>
-        <button class="filter-btn" data-filter="Scholar">Scholars</button>
-      </div>
-      <div id="roster-list"></div>
-    </div>
-  </div>
 
-  <!-- DASHBOARD -->
-  <div class="view" id="view-dashboard">
-    <div id="dashboard-lock"></div>
-    <div id="dashboard-content" style="display:none;">
-      <div class="toolbar">
-        <input type="date" id="dash-date" style="flex:1;">
-        <button class="btn-secondary" id="dashboard-lock-btn" style="white-space:nowrap;">Lock</button>
+      <!-- DASHBOARD -->
+      <div class="view" id="view-dashboard">
+        <div id="dashboard-lock"></div>
+        <div id="dashboard-content" style="display:none;">
+          <div class="toolbar">
+            <input type="date" id="dash-date" style="flex:1;">
+            <button class="btn-secondary" id="dashboard-lock-btn" style="white-space:nowrap;">Lock</button>
+          </div>
+          <div class="stat-row">
+            <div class="stat-card"><div class="label">Present</div><div class="value" id="stat-present">0</div></div>
+            <div class="stat-card"><div class="label">Total members</div><div class="value" id="stat-total">0</div></div>
+            <div class="stat-card"><div class="label">Attendance</div><div class="value" id="stat-pct">0%</div></div>
+          </div>
+          <div class="section-title">By ministry</div>
+          <div id="ministry-breakdown"></div>
+          <div class="section-title">Scholars</div>
+          <div id="scholar-breakdown"></div>
+          <div class="section-title">Present</div>
+          <div class="attend-list" id="present-list"></div>
+          <div class="section-title">Absent</div>
+          <div class="attend-list" id="absent-list"></div>
+        </div>
       </div>
-      <div class="stat-row">
-        <div class="stat-card"><div class="label">Present</div><div class="value" id="stat-present">0</div></div>
-        <div class="stat-card"><div class="label">Total members</div><div class="value" id="stat-total">0</div></div>
-        <div class="stat-card"><div class="label">Attendance</div><div class="value" id="stat-pct">0%</div></div>
-      </div>
-      <div class="section-title">By ministry</div>
-      <div id="ministry-breakdown"></div>
-      <div class="section-title">Scholars</div>
-      <div id="scholar-breakdown"></div>
-      <div class="section-title">Present</div>
-      <div class="attend-list" id="present-list"></div>
-      <div class="section-title">Absent</div>
-      <div class="attend-list" id="absent-list"></div>
     </div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-title">Recently checked in</div>
+        <div id="recent-checkins"></div>
+      </div>
+      <div class="sidebar-card">
+        <div class="sidebar-title">Church Info</div>
+        <p class="dropdown-about-title">Emmanuel Presbyterian Montalban Church</p>
+        <p class="dropdown-about-address">Kasama Mission Center, Villa San Isidro, San Isidro, Rodriguez, Philippines, 1860</p>
+        <a href="https://www.facebook.com/kasamachurch" target="_blank" rel="noopener noreferrer" class="dropdown-fb-link">
+          Visit our Facebook page
+        </a>
+      </div>
+    </aside>
   </div>
 </div>
 
@@ -126,6 +151,13 @@
         <label><input type="radio" name="member-type" value="Member" checked> Member</label>
         <label><input type="radio" name="member-type" value="Attendee"> Attendee</label>
         <label><input type="radio" name="member-type" value="Visitor"> Visitor</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <div class="radio-group" id="member-status-group">
+        <label><input type="radio" name="member-status" value="Active" checked> Active</label>
+        <label><input type="radio" name="member-status" value="Inactive"> Inactive</label>
       </div>
     </div>
     <div class="field">
@@ -164,6 +196,11 @@
       <button class="btn-primary" id="modal-save">Save</button>
     </div>
   </div>
+</div>
+
+<!-- Profile view modal -->
+<div class="modal-backdrop" id="profile-modal">
+  <div class="modal profile-modal" id="profile-modal-content"></div>
 </div>
 
 <!-- Supabase -->
