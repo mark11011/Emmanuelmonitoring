@@ -35,6 +35,46 @@ document.addEventListener('click', (e)=>{
   }
 });
 
+// ---- Dropdown: help panel ----
+document.getElementById('help-toggle').addEventListener('click', function(){
+  document.getElementById('help-panel').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+// ---- Dropdown: change leader passcode ----
+document.getElementById('passcode-toggle').addEventListener('click', function(){
+  const panel = document.getElementById('passcode-panel');
+  const opening = !panel.classList.contains('show');
+  panel.classList.toggle('show');
+  this.classList.toggle('open');
+  if(opening){
+    const msg = document.getElementById('passcode-panel-msg');
+    const form = document.getElementById('passcode-change-form');
+    if(leaderUnlocked){
+      msg.style.display = 'none';
+      form.style.display = 'block';
+    }else{
+      msg.style.display = 'block';
+      form.style.display = 'none';
+    }
+  }
+});
+document.getElementById('save-new-passcode-btn').addEventListener('click', async ()=>{
+  const val = document.getElementById('new-passcode-input').value;
+  const confirmVal = document.getElementById('new-passcode-confirm').value;
+  const errEl = document.getElementById('passcode-change-error');
+  if(!val || val.length < 4){ errEl.textContent = 'Use at least 4 characters.'; return; }
+  if(val !== confirmVal){ errEl.textContent = 'Passcodes do not match.'; return; }
+  const hash = simpleHash(val);
+  const ok = await savePasscode(hash);
+  if(!ok){ errEl.textContent = 'Could not save. Check your connection.'; return; }
+  leaderPasscodeHash = hash;
+  errEl.style.color = 'var(--sage)';
+  errEl.textContent = 'Passcode updated.';
+  document.getElementById('new-passcode-input').value = '';
+  document.getElementById('new-passcode-confirm').value = '';
+});
+
 const MINISTRIES = [
   'Praise and Worship','Ushering','Media and Tech','Teacher',
   'Discipleship and Small Group Leader','Outreach and Missions',
@@ -202,6 +242,8 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'roster') gateRoster();
     if(btn.dataset.view === 'dashboard') gateDashboard();
+    const recentCard = document.getElementById('recent-checkins-card');
+    if(recentCard) recentCard.style.display = (btn.dataset.view === 'checkin') ? '' : 'none';
   });
 });
 
@@ -453,6 +495,31 @@ document.getElementById('filter-toggle-btn').addEventListener('click', function(
   this.classList.toggle('open');
 });
 
+document.getElementById('ministry-toggle-btn').addEventListener('click', function(){
+  document.getElementById('ministry-breakdown').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+document.getElementById('scholar-toggle-btn').addEventListener('click', function(){
+  document.getElementById('scholar-breakdown').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+document.getElementById('present-toggle-btn').addEventListener('click', function(){
+  document.getElementById('present-list').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+document.getElementById('absent-toggle-btn').addEventListener('click', function(){
+  document.getElementById('absent-list').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+document.getElementById('report-toggle-btn').addEventListener('click', function(){
+  document.getElementById('report-panel').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
 // ---- Modal ----
 function toggleMemberOnlyFields(){
   const selected = document.querySelector('input[name="member-type"]:checked').value;
@@ -677,14 +744,14 @@ function renderDashboard(){
   const presentList = document.getElementById('present-list');
   presentList.innerHTML = '';
   if(presentMembers.length === 0){
-    presentList.innerHTML = '<span class="empty" style="padding:6px 0;">No one checked in yet for this date.</span>';
+    presentList.innerHTML = '<li class="empty" style="list-style:none; padding:6px 0;">No one checked in yet for this date.</li>';
   }else{
     presentMembers.forEach(m=>{
-      const pill = document.createElement('button');
-      pill.className = 'pill pill-clickable';
-      pill.textContent = m.name;
-      pill.title = 'Click to mark absent';
-      pill.addEventListener('click', async ()=>{
+      const li = document.createElement('li');
+      li.className = 'attend-list-item clickable';
+      li.textContent = m.name;
+      li.title = 'Click to mark absent';
+      li.addEventListener('click', async ()=>{
         if(!confirm(`Mark ${m.name} as absent for this date?`)) return;
         const ok = await deleteAttendance(m.id, date);
         if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
@@ -697,16 +764,122 @@ function renderDashboard(){
         renderDashboard();
         renderCheckin();
       });
-      presentList.appendChild(pill);
+      presentList.appendChild(li);
     });
   }
 
   const absentList = document.getElementById('absent-list');
   absentList.innerHTML = absentMembers.length
-    ? absentMembers.map(m=>`<span class="pill absent">${escapeHtml(m.name)}</span>`).join('')
-    : '<span class="empty" style="padding:6px 0;">Everyone is accounted for.</span>';
+    ? absentMembers.map(m=>`<li class="attend-list-item absent">${escapeHtml(m.name)}</li>`).join('')
+    : '<li class="empty" style="list-style:none; padding:6px 0;">Everyone is accounted for.</li>';
+
+  renderReport();
 }
 document.getElementById('dash-date').addEventListener('change', renderDashboard);
+
+// ---- Attendance report: by month, per year ----
+function renderReport(){
+  const yearSelect = document.getElementById('report-year');
+  if(!yearSelect) return;
+
+  const yearsFromData = Array.from(new Set(attendance.map(r => (r.date || '').slice(0,4)).filter(Boolean)));
+  const currentYear = String(new Date().getFullYear());
+  const years = Array.from(new Set([...yearsFromData, currentYear])).sort((a,b) => b.localeCompare(a));
+
+  const prevValue = yearSelect.value;
+  yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  yearSelect.value = years.includes(prevValue) ? prevValue : years[0];
+  const selectedYear = yearSelect.value;
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const counts = new Array(12).fill(0);
+  attendance.forEach(r=>{
+    if(r.date && r.date.slice(0,4) === selectedYear){
+      const monthIdx = parseInt(r.date.slice(5,7), 10) - 1;
+      if(monthIdx >= 0 && monthIdx < 12) counts[monthIdx]++;
+    }
+  });
+  const maxCount = Math.max(1, ...counts);
+
+  document.getElementById('report-breakdown').innerHTML = monthNames.map((name, i)=>{
+    const pct = Math.round((counts[i] / maxCount) * 100);
+    return `
+      <div class="ministry-bar-row">
+        <div class="ministry-bar-label"><span>${name}</span><span>${counts[i]}</span></div>
+        <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join('');
+
+  renderMemberReport();
+}
+document.getElementById('report-year').addEventListener('change', renderReport);
+
+// ---- Attendance report: track an individual member ----
+let selectedReportMemberId = null;
+
+function renderMemberReportSuggestions(query){
+  const box = document.getElementById('report-member-suggestions');
+  if(!query){ box.innerHTML = ''; box.classList.remove('show'); return; }
+  const q = query.toLowerCase();
+  const matches = members.filter(m => m.name.toLowerCase().includes(q)).slice(0, 6);
+  if(matches.length === 0){
+    box.innerHTML = '<div class="report-suggestion-empty">No matching member.</div>';
+    box.classList.add('show');
+    return;
+  }
+  box.innerHTML = matches.map(m => `<div class="report-suggestion-item" data-id="${m.id}">${escapeHtml(m.name)}</div>`).join('');
+  box.classList.add('show');
+  box.querySelectorAll('.report-suggestion-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      selectedReportMemberId = item.dataset.id;
+      const m = members.find(x => x.id === selectedReportMemberId);
+      document.getElementById('report-member-search').value = m ? m.name : '';
+      box.innerHTML = '';
+      box.classList.remove('show');
+      renderMemberReport();
+    });
+  });
+}
+
+document.getElementById('report-member-search').addEventListener('input', (e)=>{
+  selectedReportMemberId = null;
+  document.getElementById('report-member-result').innerHTML = '';
+  renderMemberReportSuggestions(e.target.value.trim());
+});
+
+function renderMemberReport(){
+  const resultEl = document.getElementById('report-member-result');
+  if(!resultEl) return;
+  if(!selectedReportMemberId){ resultEl.innerHTML = ''; return; }
+  const m = members.find(x => x.id === selectedReportMemberId);
+  if(!m){ resultEl.innerHTML = ''; return; }
+
+  const year = document.getElementById('report-year').value;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const counts = new Array(12).fill(0);
+  attendance.forEach(r=>{
+    if(r.memberId === m.id && r.date && r.date.slice(0,4) === year){
+      const monthIdx = parseInt(r.date.slice(5,7), 10) - 1;
+      if(monthIdx >= 0 && monthIdx < 12) counts[monthIdx]++;
+    }
+  });
+  const total = counts.reduce((a,b) => a + b, 0);
+  const maxCount = Math.max(1, ...counts);
+
+  resultEl.innerHTML = `
+    <div class="report-member-total">${escapeHtml(m.name)} &middot; ${total} check-in${total === 1 ? '' : 's'} in ${year}</div>
+    ${monthNames.map((name, i)=>{
+      const pct = Math.round((counts[i] / maxCount) * 100);
+      return `
+        <div class="ministry-bar-row">
+          <div class="ministry-bar-label"><span>${name}</span><span>${counts[i]}</span></div>
+          <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
 
 // ---- Init ----
 (async function init(){
