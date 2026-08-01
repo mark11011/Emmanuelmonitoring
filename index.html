@@ -80,11 +80,17 @@
 
       <!-- CHECK IN -->
       <div class="view active" id="view-checkin">
-        <span class="date-label" id="today-label"></span>
-        <div class="search-row">
-          <input type="text" id="checkin-search" placeholder="Search your name...">
+        <div id="checkin-lock"></div>
+        <div id="checkin-content" style="display:none;">
+          <div class="toolbar" style="align-items:center;">
+            <span class="date-label" id="today-label" style="margin-bottom:0;flex:1;"></span>
+            <button class="btn-secondary" id="checkin-lock-btn" style="white-space:nowrap;">Lock</button>
+          </div>
+          <div class="search-row">
+            <input type="text" id="checkin-search" placeholder="Search your name to check in...">
+          </div>
+          <div class="member-grid" id="checkin-grid"></div>
         </div>
-        <div class="member-grid" id="checkin-grid"></div>
       </div>
 
       <!-- ROSTER -->
@@ -169,7 +175,9 @@
               <select id="report-year"></select>
             </div>
             <div class="section-title" style="margin-top:0;">Overall by month</div>
+            <p class="report-hint">Tap a month to see and edit who checked in on each date.</p>
             <div id="report-breakdown"></div>
+            <div id="month-detail"></div>
 
             <div class="section-title">Track a member</div>
             <div class="search-row" style="margin-bottom:6px;">

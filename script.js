@@ -9,15 +9,15 @@ const todayStr = () => new Date().toISOString().slice(0,10);
 function applyTheme(theme){
   document.body.classList.toggle('light-theme', theme === 'light');
   const checkbox = document.getElementById('theme-toggle-checkbox');
-  if(checkbox) checkbox.checked = (theme === 'light');
+  if(checkbox) checkbox.checked = (theme === 'dark');
 }
 (function initTheme(){
-  let saved = 'dark';
-  try{ saved = localStorage.getItem('theme-preference') || 'dark'; }catch(e){}
+  let saved = 'light';
+  try{ saved = localStorage.getItem('theme-preference') || 'light'; }catch(e){}
   applyTheme(saved);
 })();
 document.getElementById('theme-toggle-checkbox').addEventListener('change', (e)=>{
-  const next = e.target.checked ? 'light' : 'dark';
+  const next = e.target.checked ? 'dark' : 'light';
   try{ localStorage.setItem('theme-preference', next); }catch(e){}
   applyTheme(next);
 });
@@ -325,10 +325,10 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'checkin') gateCheckin();
     if(btn.dataset.view === 'roster') gateRoster();
     if(btn.dataset.view === 'dashboard') gateDashboard();
-    const recentCard = document.getElementById('recent-checkins-card');
-    if(recentCard) recentCard.style.display = (btn.dataset.view === 'checkin') ? '' : 'none';
+    updateSidebarVisibility();
   });
 });
 
@@ -374,15 +374,29 @@ function renderCheckin(){
   const grid = document.getElementById('checkin-grid');
   grid.innerHTML = '';
   const today = todayStr();
+
+  const emptyState = (message)=> `
+    <div class="empty-state">
+      <img src="images/emmanuelBlack.jpg" alt="" class="empty-logo empty-logo-light">
+      <img src="images/emmanuelWhiteremove.jpg" alt="" class="empty-logo empty-logo-dark">
+      ${message ? `<p>${escapeHtml(message)}</p>` : ''}
+    </div>
+  `;
+
+  if(!q){
+    grid.innerHTML = emptyState();
+    return;
+  }
+
   const filtered = members.filter(m =>
     m.name.toLowerCase().includes(q) || checkinDisplayName(m).toLowerCase().includes(q)
   );
   if(members.length === 0){
-    grid.innerHTML = '<div class="empty">No members yet. Ask a leader to add the roster first.</div>';
+    grid.innerHTML = emptyState('No members yet. Ask a leader to add the roster first.');
     return;
   }
   if(filtered.length === 0){
-    grid.innerHTML = '<div class="empty">No matching name.</div>';
+    grid.innerHTML = emptyState('No matching name.');
     return;
   }
   filtered.forEach(m=>{
@@ -480,6 +494,16 @@ function renderLockScreen(lockElId, contentElId, onUnlocked){
   });
 }
 
+function gateCheckin(){
+  if(leaderUnlocked){
+    document.getElementById('checkin-lock').style.display = 'none';
+    document.getElementById('checkin-content').style.display = 'block';
+    renderCheckin();
+  }else{
+    renderLockScreen('checkin-lock', 'checkin-content', ()=>{ renderCheckin(); updateSidebarVisibility(); });
+  }
+  updateSidebarVisibility();
+}
 function gateRoster(){
   if(leaderUnlocked){
     document.getElementById('roster-lock').style.display = 'none';
@@ -498,6 +522,10 @@ function gateDashboard(){
     renderLockScreen('dashboard-lock', 'dashboard-content', renderDashboard);
   }
 }
+document.getElementById('checkin-lock-btn').addEventListener('click', ()=>{
+  leaderUnlocked = false;
+  gateCheckin();
+});
 document.getElementById('roster-lock-btn').addEventListener('click', ()=>{
   leaderUnlocked = false;
   gateRoster();
@@ -506,6 +534,14 @@ document.getElementById('dashboard-lock-btn').addEventListener('click', ()=>{
   leaderUnlocked = false;
   gateDashboard();
 });
+
+function updateSidebarVisibility(){
+  const recentCard = document.getElementById('recent-checkins-card');
+  if(!recentCard) return;
+  const activeBtn = document.querySelector('nav.tabs button.active');
+  const activeView = activeBtn ? activeBtn.dataset.view : null;
+  recentCard.style.display = (activeView === 'checkin' && leaderUnlocked) ? '' : 'none';
+}
 
 function buildEducationLine(m){
   if(!m.education_level) return '';
@@ -959,17 +995,102 @@ function renderReport(){
 
   document.getElementById('report-breakdown').innerHTML = monthNames.map((name, i)=>{
     const pct = Math.round((counts[i] / maxCount) * 100);
+    const isSelected = selectedReportMonth && selectedReportMonth.year === selectedYear && selectedReportMonth.monthIndex === i;
     return `
-      <div class="ministry-bar-row">
+      <div class="ministry-bar-row month-row${isSelected ? ' selected' : ''}" data-month="${i}">
         <div class="ministry-bar-label"><span>${name}</span><span>${counts[i]}</span></div>
         <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${pct}%"></div></div>
       </div>
     `;
   }).join('');
 
+  document.querySelectorAll('#report-breakdown .month-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const monthIdx = parseInt(row.dataset.month, 10);
+      const isSame = selectedReportMonth && selectedReportMonth.year === selectedYear && selectedReportMonth.monthIndex === monthIdx;
+      selectedReportMonth = isSame ? null : { year: selectedYear, monthIndex: monthIdx };
+      renderReport();
+    });
+  });
+
+  renderMonthDetail(selectedYear);
   renderMemberReport();
 }
 document.getElementById('report-year').addEventListener('change', renderReport);
+
+// ---- Attendance report: per-date attendee breakdown for a selected month ----
+let selectedReportMonth = null;
+
+function renderMonthDetail(selectedYear){
+  const container = document.getElementById('month-detail');
+  if(!container) return;
+  if(!selectedReportMonth || selectedReportMonth.year !== selectedYear){
+    container.innerHTML = '';
+    return;
+  }
+  const monthIdx = selectedReportMonth.monthIndex;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const prefix = `${selectedYear}-${String(monthIdx + 1).padStart(2,'0')}`;
+
+  const dateGroups = {};
+  attendance.forEach(r=>{
+    if(r.date && r.date.startsWith(prefix)){
+      dateGroups[r.date] = dateGroups[r.date] || [];
+      dateGroups[r.date].push(r);
+    }
+  });
+  const dates = Object.keys(dateGroups).sort();
+
+  if(dates.length === 0){
+    container.innerHTML = `<div class="empty" style="padding:16px 0;">No check-ins recorded for ${monthNames[monthIdx]} ${selectedYear}.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="section-title">${monthNames[monthIdx]} ${selectedYear} &middot; attendees by date</div>
+    ${dates.map(date=>{
+      const records = dateGroups[date].slice().sort((a,b)=>{
+        const ma = members.find(x=>x.id===a.memberId);
+        const mb = members.find(x=>x.id===b.memberId);
+        return (ma ? ma.name : '').localeCompare(mb ? mb.name : '');
+      });
+      const dateLabel = formatDateLong(date) || date;
+      return `
+        <div class="month-date-group" data-date="${date}">
+          <div class="month-date-header">
+            <span>${dateLabel}</span>
+            <span>${records.length} present</span>
+          </div>
+          ${records.map(r=>{
+            const m = members.find(x=>x.id===r.memberId);
+            const name = m ? m.name : 'Unknown member';
+            return `
+              <div class="month-date-member-row" data-member="${r.memberId}" data-date="${date}">
+                <span>${escapeHtml(name)}</span>
+                <button class="icon-btn month-remove-btn" title="Remove this check-in">&times;</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  container.querySelectorAll('.month-remove-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('.month-date-member-row');
+      const memberId = row.dataset.member;
+      const date = row.dataset.date;
+      const m = members.find(x=>x.id === memberId);
+      if(!confirm(`Remove ${m ? m.name : 'this attendee'}'s check-in for ${formatDateLong(date) || date}?`)) return;
+      const ok = await deleteAttendance(memberId, date);
+      if(!ok){ alert('Could not remove attendance. Check your connection.'); return; }
+      attendance = attendance.filter(r => !(r.memberId === memberId && r.date === date));
+      renderDashboard();
+      renderCheckin();
+    });
+  });
+}
 
 // ---- Attendance report: track an individual member ----
 let selectedReportMemberId = null;
@@ -1040,5 +1161,5 @@ function renderMemberReport(){
 // ---- Init ----
 (async function init(){
   await loadData();
-  renderCheckin();
+  gateCheckin();
 })();

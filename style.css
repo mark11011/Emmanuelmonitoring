@@ -224,6 +224,20 @@
   @keyframes pop-check{to{opacity:1;}}
 
   .empty{color:var(--muted);font-size:14px;padding:30px 10px;text-align:center;}
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:70px 10px; text-align:center; width:100%;
+    grid-column:1 / -1;
+  }
+  .empty-logo{
+    width:150px; height:150px; object-fit:contain;
+    margin-bottom:18px; pointer-events:none; user-select:none;
+  }
+  .empty-logo-light{display:none;}
+  .empty-logo-dark{display:block;}
+  body.light-theme .empty-logo-light{display:block;}
+  body.light-theme .empty-logo-dark{display:none;}
+  .empty-state p{color:var(--muted); font-size:14px; margin:0;}
 
   /* Roster */
   #roster-list{max-height:560px; overflow-y:auto; padding-right:6px;}
@@ -369,6 +383,29 @@
     font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold-soft);
     margin-bottom:10px;
   }
+  .report-hint{font-size:12px; color:var(--muted); margin:-4px 0 10px;}
+  .month-row{cursor:pointer; border-radius:8px; padding:6px 8px; margin:0 -8px 10px; transition:background .15s;}
+  .month-row:hover{background:var(--ink-2);}
+  .month-row.selected{background:var(--ink-2);}
+  .month-row.selected .ministry-bar-fill{background:var(--gold);}
+  .month-date-group{
+    background:var(--ink-2); border:1px solid var(--ink-3); border-radius:10px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .month-date-header{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'Fraunces',serif; font-weight:600; font-size:14px;
+    color:var(--ivory); margin-bottom:8px;
+  }
+  .month-date-header span:last-child{
+    font-family:'JetBrains Mono',monospace; font-weight:400; font-size:12px; color:var(--gold-soft);
+  }
+  .month-date-member-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-bottom:1px solid var(--ink-3); font-size:13px; color:var(--ivory);
+  }
+  .month-date-member-row:last-child{border-bottom:none;}
+  .month-remove-btn{width:26px; height:26px; font-size:13px; flex-shrink:0;}
 
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-thumb{background:var(--ink-3);border-radius:4px;}
