@@ -7,12 +7,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/jpeg" href="images/emmanuellogo.jpg">
+<link rel="icon" type="image/png" href="images/emmanuellogo-square.png">
+
+<!-- PWA: installability -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A44">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Emmanuel">
+<link rel="apple-touch-icon" href="images/icon-192.png">
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <img src="images/emmanuellogo.jpg" alt="Emmanuel Presbyterian Montalban Church logo" class="logo">
+    <img src="images/emmanuellogo-square.png" alt="Emmanuel Presbyterian Montalban Church logo" class="logo">
     <div class="header-title">
       <h1>Emmanuel Presbyterian Montalban Church</h1>
       <p>Attendance and member registry</p>
@@ -24,6 +33,12 @@
         </svg>
       </button>
       <div class="dropdown-menu" id="dropdown-menu">
+        <div class="dropdown-row" id="install-row" style="display:none;">
+          <span>Install app</span>
+          <button class="btn-secondary" id="install-btn" style="padding:6px 14px;font-size:12.5px;">Download</button>
+        </div>
+        <div class="dropdown-divider" id="install-divider" style="display:none;"></div>
+
         <div class="dropdown-row">
           <span>Dark mode</span>
           <label class="switch">

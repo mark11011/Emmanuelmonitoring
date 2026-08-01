@@ -5,6 +5,61 @@ let leaderUnlocked = false;
 let rosterFilter = 'All';
 const todayStr = () => new Date().toISOString().slice(0,10);
 
+// ---- PWA: service worker + install prompt ----
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.error('sw register failed', e));
+  });
+}
+
+let deferredInstallPrompt = null;
+const installRow = document.getElementById('install-row');
+const installDivider = document.getElementById('install-divider');
+const installBtn = document.getElementById('install-btn');
+
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if(!isStandalone()){
+    installRow.style.display = 'flex';
+    installDivider.style.display = 'block';
+  }
+});
+
+if(installBtn){
+  installBtn.addEventListener('click', async ()=>{
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installRow.style.display = 'none';
+    installDivider.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', ()=>{
+  installRow.style.display = 'none';
+  installDivider.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+
+// iOS Safari has no beforeinstallprompt — show "Add to Home Screen" instructions instead.
+(function iosInstallHint(){
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(isIos && !isStandalone() && installRow){
+    installRow.style.display = 'flex';
+    installDivider.style.display = 'block';
+    installBtn.textContent = 'How to install';
+    installBtn.addEventListener('click', ()=>{
+      alert('To install: tap the Share icon in Safari, then "Add to Home Screen".');
+    });
+  }
+})();
+
 // ---- Theme toggle (per-device preference, not shared church data) ----
 function applyTheme(theme){
   document.body.classList.toggle('light-theme', theme === 'light');
