@@ -25,7 +25,7 @@
       </button>
       <div class="dropdown-menu" id="dropdown-menu">
         <div class="dropdown-row">
-          <span>Light mode</span>
+          <span>Dark mode</span>
           <label class="switch">
             <input type="checkbox" id="theme-toggle-checkbox">
             <span class="switch-slider"></span>
@@ -108,6 +108,9 @@
             <button class="filter-btn" data-filter="Attendee">Attendees</button>
             <button class="filter-btn" data-filter="Visitor">Visitors</button>
             <button class="filter-btn" data-filter="Scholar">Scholars</button>
+            <button class="filter-btn" data-filter="Youth">Youth</button>
+            <button class="filter-btn" data-filter="YoungAdult">Young Adults</button>
+            <button class="filter-btn" data-filter="Adult">Adults</button>
           </div>
           <div id="roster-list"></div>
         </div>
@@ -200,8 +203,12 @@
     <h2 id="modal-title">Add member</h2>
     <input type="hidden" id="member-id">
     <div class="field">
-      <label>Full name</label>
-      <input type="text" id="member-name" placeholder="Juan Dela Cruz">
+      <label>Name</label>
+      <div class="name-field-row">
+        <input type="text" id="member-first-name" placeholder="First name">
+        <input type="text" id="member-middle-initial" placeholder="M.I." maxlength="2">
+        <input type="text" id="member-surname" placeholder="Surname">
+      </div>
     </div>
     <div class="field">
       <label>Profile picture</label>
@@ -228,6 +235,44 @@
     </div>
     <div class="field">
       <label class="checkbox-label"><input type="checkbox" id="member-scholar"> Church scholar</label>
+    </div>
+    <div class="field">
+      <label class="checkbox-label"><input type="checkbox" id="member-baptized"> Already baptized</label>
+    </div>
+    <div class="field" id="baptism-date-field" style="display:none;">
+      <label>Date of baptism</label>
+      <input type="date" id="member-baptism-date">
+    </div>
+    <div class="field">
+      <label>Education level</label>
+      <select id="member-education-level">
+        <option value="">Not applicable</option>
+        <option value="Elementary">Elementary (Grade 1-6)</option>
+        <option value="Junior High School">Junior High School (Grade 7-10)</option>
+        <option value="Senior High School">Senior High School (Grade 11-12)</option>
+        <option value="College">College</option>
+        <option value="Graduate">Graduate (finished college)</option>
+        <option value="Alternative Learning System (ALS)">Alternative Learning System (ALS)</option>
+        <option value="Vocational (TESDA)">Vocational (TESDA)</option>
+      </select>
+    </div>
+    <div class="field edu-field" id="edu-grade-field">
+      <label>Grade level</label>
+      <select id="member-grade-level"></select>
+    </div>
+    <div class="field edu-field" id="edu-program-field">
+      <div id="edu-year-wrapper" style="display:none;">
+        <label>Year level</label>
+        <select id="member-college-year">
+          <option>1st Year</option>
+          <option>2nd Year</option>
+          <option>3rd Year</option>
+          <option>4th Year</option>
+          <option>5th Year</option>
+        </select>
+      </div>
+      <label id="edu-program-label" style="margin-top:10px;">Program / course</label>
+      <input type="text" id="member-college-program" placeholder="e.g. BS in Information Technology">
     </div>
     <div class="field">
       <label>Current ministry (select all that apply)</label>

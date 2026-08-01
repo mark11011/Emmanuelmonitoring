@@ -76,9 +76,9 @@ document.getElementById('save-new-passcode-btn').addEventListener('click', async
 });
 
 const MINISTRIES = [
-  'Praise and Worship','Ushering','Media and Tech','Teacher',
-  'Discipleship and Small Group Leader','Outreach and Missions',
-  'Deacon','Prayer Team','Administration','Tambourine Dance Team'
+  'Pastoral Ministry','Diaconate','Administration','Prayer Ministry',
+  'Praise and Worship','Media and Tech','Ushering','Discipleship',
+  'Youth Ministry',"Children's Ministry",'Outreach and Missions'
 ];
 
 function renderMinistryCheckboxes(containerId, prefix){
@@ -115,6 +115,13 @@ function simpleHash(str){
   return 'h'+Math.abs(h).toString(36);
 }
 
+function formatDateLong(dateStr){
+  if(!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-PH', {year:'numeric', month:'long', day:'numeric'});
+}
+
 function calcAge(birthdate){
   if(!birthdate) return null;
   const b = new Date(birthdate);
@@ -125,6 +132,68 @@ function calcAge(birthdate){
   return age;
 }
 
+function buildFullName(first, mi, surname){
+  const miPart = mi ? mi.replace(/\.$/,'') + '.' : '';
+  return [first, miPart, surname].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+}
+function checkinDisplayName(m){
+  if(m.first_name && m.surname) return `${m.first_name} ${m.surname}`;
+  return m.name;
+}
+function ageCategory(birthdate){
+  const age = calcAge(birthdate);
+  if(age === null) return null;
+  if(age <= 24) return 'Youth';
+  if(age <= 35) return 'YoungAdult';
+  return 'Adult';
+}
+const GRADE_OPTIONS = {
+  'Elementary': ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'],
+  'Junior High School': ['Grade 7','Grade 8','Grade 9','Grade 10'],
+  'Senior High School': ['Grade 11','Grade 12']
+};
+const PROGRAM_LABELS = {
+  'College': 'Program / course',
+  'Graduate': 'Course/program completed',
+  'Vocational (TESDA)': 'TESDA course/program'
+};
+const PROGRAM_PLACEHOLDERS = {
+  'College': 'e.g. BS in Information Technology',
+  'Graduate': 'e.g. BS in Information Technology',
+  'Vocational (TESDA)': 'e.g. Computer Systems Servicing NC II'
+};
+function updateEducationFields(){
+  const level = document.getElementById('member-education-level').value;
+  const gradeField = document.getElementById('edu-grade-field');
+  const programField = document.getElementById('edu-program-field');
+  const yearWrapper = document.getElementById('edu-year-wrapper');
+  const programLabel = document.getElementById('edu-program-label');
+  const gradeSelect = document.getElementById('member-grade-level');
+  const programInput = document.getElementById('member-college-program');
+
+  gradeField.classList.remove('show');
+  programField.classList.remove('show');
+
+  if(GRADE_OPTIONS[level]){
+    gradeField.classList.add('show');
+    const prevGrade = gradeSelect.value;
+    gradeSelect.innerHTML = GRADE_OPTIONS[level].map(g => `<option>${g}</option>`).join('');
+    if(GRADE_OPTIONS[level].includes(prevGrade)) gradeSelect.value = prevGrade;
+  }else if(PROGRAM_LABELS[level]){
+    programField.classList.add('show');
+    yearWrapper.style.display = (level === 'College') ? 'block' : 'none';
+    programLabel.textContent = PROGRAM_LABELS[level];
+    programInput.placeholder = PROGRAM_PLACEHOLDERS[level] || '';
+  }
+}
+document.getElementById('member-education-level').addEventListener('change', updateEducationFields);
+
+function toggleBaptismDateField(){
+  const checked = document.getElementById('member-baptized').checked;
+  document.getElementById('baptism-date-field').style.display = checked ? 'block' : 'none';
+}
+document.getElementById('member-baptized').addEventListener('change', toggleBaptismDateField);
+
 // ---- Supabase data layer ----
 async function loadData(){
   try{
@@ -132,10 +201,17 @@ async function loadData(){
     if(error) throw error;
     members = (data || []).map(m => ({
       id: m.id, name: m.name, birthdate: m.birthdate || '',
+      first_name: m.first_name || '', middle_initial: m.middle_initial || '', surname: m.surname || '',
       ministry: m.ministry || '', photo_url: m.photo_url || '',
       member_type: m.member_type || 'Member',
       status: m.status || 'Active',
       is_scholar: !!m.is_scholar,
+      is_baptized: !!m.is_baptized,
+      baptism_date: m.baptism_date || '',
+      education_level: m.education_level || '',
+      grade_level: m.grade_level || '',
+      college_year: m.college_year || '',
+      college_program: m.college_program || '',
       talents_skills: m.talents_skills || '',
       desired_ministry: m.desired_ministry || '',
       cellphone: m.cellphone || '', email: m.email || '',
@@ -162,12 +238,21 @@ async function upsertMember(member){
     const { error } = await window.db.from('members').upsert({
       id: member.id,
       name: member.name,
+      first_name: member.first_name || null,
+      middle_initial: member.middle_initial || null,
+      surname: member.surname || null,
       birthdate: member.birthdate || null,
       ministry: member.ministry,
       photo_url: member.photo_url || null,
       member_type: member.member_type || 'Member',
       status: member.status || 'Active',
       is_scholar: !!member.is_scholar,
+      is_baptized: !!member.is_baptized,
+      baptism_date: member.baptism_date || null,
+      education_level: member.education_level || null,
+      grade_level: member.grade_level || null,
+      college_year: member.college_year || null,
+      college_program: member.college_program || null,
       talents_skills: member.talents_skills || null,
       desired_ministry: member.desired_ministry || null,
       cellphone: member.cellphone || null,
@@ -268,7 +353,7 @@ function renderSidebar(){
 
   recentEl.innerHTML = recent.map(r=>{
     const m = members.find(x => x.id === r.memberId);
-    const name = m ? m.name : 'Unknown';
+    const name = m ? checkinDisplayName(m) : 'Unknown';
     const timeStr = r.timestamp
       ? new Date(r.timestamp).toLocaleTimeString('en-PH', {hour:'numeric', minute:'2-digit'})
       : '';
@@ -289,7 +374,9 @@ function renderCheckin(){
   const grid = document.getElementById('checkin-grid');
   grid.innerHTML = '';
   const today = todayStr();
-  const filtered = members.filter(m => m.name.toLowerCase().includes(q));
+  const filtered = members.filter(m =>
+    m.name.toLowerCase().includes(q) || checkinDisplayName(m).toLowerCase().includes(q)
+  );
   if(members.length === 0){
     grid.innerHTML = '<div class="empty">No members yet. Ask a leader to add the roster first.</div>';
     return;
@@ -300,12 +387,13 @@ function renderCheckin(){
   }
   filtered.forEach(m=>{
     const checked = isCheckedIn(m.id, today);
+    const displayName = checkinDisplayName(m);
     const card = document.createElement('button');
     card.className = 'member-card' + (checked ? ' checked' : '');
     card.innerHTML = `
-      <img class="member-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
+      <img class="member-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(displayName)}"
            onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
-      <p class="name">${escapeHtml(m.name)}</p>
+      <p class="name">${escapeHtml(displayName)}</p>
       <p class="ministry">${escapeHtml(m.ministry || '')}</p>
       <span class="undo-hint">Tap again to undo</span>
       <span class="seal"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="12"/><path d="M9 15l4 4 8-9" stroke="var(--gold)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -419,6 +507,23 @@ document.getElementById('dashboard-lock-btn').addEventListener('click', ()=>{
   gateDashboard();
 });
 
+function buildEducationLine(m){
+  if(!m.education_level) return '';
+  if(m.education_level === 'College'){
+    return `College${m.college_year ? ' &middot; ' + escapeHtml(m.college_year) : ''}${m.college_program ? ' &middot; ' + escapeHtml(m.college_program) : ''}`;
+  }
+  if(m.education_level === 'Graduate' || m.education_level === 'Vocational (TESDA)'){
+    return `${escapeHtml(m.education_level)}${m.college_program ? ' &middot; ' + escapeHtml(m.college_program) : ''}`;
+  }
+  if(m.education_level === 'Alternative Learning System (ALS)'){
+    return 'Alternative Learning System (ALS)';
+  }
+  if(m.grade_level){
+    return `${escapeHtml(m.education_level)} &middot; ${escapeHtml(m.grade_level)}`;
+  }
+  return escapeHtml(m.education_level);
+}
+
 // ---- Roster view ----
 function renderRoster(){
   const q = document.getElementById('roster-search').value.trim().toLowerCase();
@@ -428,6 +533,9 @@ function renderRoster(){
     if(!m.name.toLowerCase().includes(q)) return false;
     if(rosterFilter === 'All') return true;
     if(rosterFilter === 'Scholar') return !!m.is_scholar;
+    if(rosterFilter === 'Youth' || rosterFilter === 'YoungAdult' || rosterFilter === 'Adult'){
+      return ageCategory(m.birthdate) === rosterFilter;
+    }
     return (m.member_type || 'Member') === rosterFilter;
   });
   if(filtered.length === 0){
@@ -437,15 +545,16 @@ function renderRoster(){
   filtered.forEach(m=>{
     const age = calcAge(m.birthdate);
     const row = document.createElement('div');
-    row.className = 'roster-row';
     const contactBits = [m.cellphone, m.email, m.facebook, m.instagram].filter(Boolean);
     const isActive = (m.status || 'Active') === 'Active';
+    row.className = 'roster-row';
+    const educationLine = buildEducationLine(m);
     row.innerHTML = `
       <div class="roster-header" data-view-profile="${m.id}">
         <img class="roster-photo" src="${m.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(m.name)}"
              onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
         <div class="roster-name-block">
-          <div class="name"><span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>${escapeHtml(m.name)}${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}</div>
+          <div class="name">${escapeHtml(m.name)}${m.is_scholar ? `<span class="scholar-tag ${isActive ? 'active' : 'inactive'}">Scholar</span>` : ''}</div>
         </div>
         <div class="actions">
           <button class="icon-btn" data-edit="${m.id}">&#9998;</button>
@@ -453,8 +562,9 @@ function renderRoster(){
         </div>
       </div>
       <div class="info">
-        <div class="meta">${escapeHtml(m.member_type || 'Member')} &middot; ${escapeHtml(m.status || 'Active')} &middot; ${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}</div>
+        <div class="meta">${escapeHtml(m.member_type || 'Member')} &middot; <span class="status-text ${isActive ? 'active' : 'inactive'}">${escapeHtml(m.status || 'Active')}</span> &middot; ${age !== null ? age + ' yrs old' : 'No birthdate'} &middot; ${escapeHtml(m.ministry || 'No ministry')}</div>
         ${contactBits.length ? `<div class="meta">${contactBits.map(escapeHtml).join(' &middot; ')}</div>` : ''}
+        ${educationLine ? `<div class="meta">${educationLine}</div>` : ''}
         ${m.talents_skills ? `<div class="meta">Talents: ${escapeHtml(m.talents_skills)}</div>` : ''}
         ${m.desired_ministry ? `<div class="meta">Interested in: ${escapeHtml(m.desired_ministry)}</div>` : ''}
       </div>
@@ -538,12 +648,22 @@ function openMemberModal(id){
   document.getElementById('member-photos').value = '';
   if(id){
     const m = members.find(x=>x.id === id);
-    document.getElementById('member-name').value = m.name || '';
+    document.getElementById('member-first-name').value = m.first_name || '';
+    document.getElementById('member-middle-initial').value = m.middle_initial || '';
+    document.getElementById('member-surname').value = m.surname || '';
     document.getElementById('member-birthdate').value = m.birthdate || '';
     setCheckedMinistries('ministry-current-group', m.ministry);
     document.querySelector(`input[name="member-type"][value="${m.member_type || 'Member'}"]`).checked = true;
     document.querySelector(`input[name="member-status"][value="${m.status || 'Active'}"]`).checked = true;
     document.getElementById('member-scholar').checked = !!m.is_scholar;
+    document.getElementById('member-baptized').checked = !!m.is_baptized;
+    document.getElementById('member-baptism-date').value = m.baptism_date || '';
+    toggleBaptismDateField();
+    document.getElementById('member-education-level').value = m.education_level || '';
+    updateEducationFields();
+    if(m.grade_level) document.getElementById('member-grade-level').value = m.grade_level;
+    document.getElementById('member-college-year').value = m.college_year || '1st Year';
+    document.getElementById('member-college-program').value = m.college_program || '';
     document.getElementById('member-talents').value = m.talents_skills || '';
     setCheckedMinistries('ministry-desired-group', m.desired_ministry);
     document.getElementById('member-cellphone').value = m.cellphone || '';
@@ -551,12 +671,20 @@ function openMemberModal(id){
     document.getElementById('member-facebook').value = m.facebook || '';
     document.getElementById('member-instagram').value = m.instagram || '';
   }else{
-    document.getElementById('member-name').value = '';
+    document.getElementById('member-first-name').value = '';
+    document.getElementById('member-middle-initial').value = '';
+    document.getElementById('member-surname').value = '';
     document.getElementById('member-birthdate').value = '';
     setCheckedMinistries('ministry-current-group', '');
     document.querySelector('input[name="member-type"][value="Member"]').checked = true;
     document.querySelector('input[name="member-status"][value="Active"]').checked = true;
     document.getElementById('member-scholar').checked = false;
+    document.getElementById('member-baptized').checked = false;
+    document.getElementById('member-baptism-date').value = '';
+    toggleBaptismDateField();
+    document.getElementById('member-education-level').value = '';
+    updateEducationFields();
+    document.getElementById('member-college-program').value = '';
     document.getElementById('member-talents').value = '';
     setCheckedMinistries('ministry-desired-group', '');
     document.getElementById('member-cellphone').value = '';
@@ -570,8 +698,11 @@ function openMemberModal(id){
 document.getElementById('add-member-btn').addEventListener('click', ()=> openMemberModal(null));
 document.getElementById('modal-cancel').addEventListener('click', ()=> modal.classList.remove('active'));
 document.getElementById('modal-save').addEventListener('click', async ()=>{
-  const name = document.getElementById('member-name').value.trim();
-  if(!name){ alert('Enter a name.'); return; }
+  const firstName = document.getElementById('member-first-name').value.trim();
+  const middleInitial = document.getElementById('member-middle-initial').value.trim();
+  const surname = document.getElementById('member-surname').value.trim();
+  if(!firstName || !surname){ alert('Enter at least a first name and surname.'); return; }
+  const name = buildFullName(firstName, middleInitial, surname);
   const existingId = document.getElementById('member-id').value;
   const id = existingId || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
   const existing = members.find(x=>x.id === id);
@@ -589,15 +720,25 @@ document.getElementById('modal-save').addEventListener('click', async ()=>{
 
   const memberType = document.querySelector('input[name="member-type"]:checked').value;
   const status = document.querySelector('input[name="member-status"]:checked').value;
+  const educationLevel = document.getElementById('member-education-level').value;
   const data = {
     id,
     name,
+    first_name: firstName,
+    middle_initial: middleInitial,
+    surname,
     birthdate: document.getElementById('member-birthdate').value,
     ministry: getCheckedMinistries('ministry-current-group').join(', '),
     photo_url,
     member_type: memberType,
     status,
     is_scholar: document.getElementById('member-scholar').checked,
+    is_baptized: document.getElementById('member-baptized').checked,
+    baptism_date: document.getElementById('member-baptized').checked ? document.getElementById('member-baptism-date').value : '',
+    education_level: educationLevel,
+    grade_level: GRADE_OPTIONS[educationLevel] ? document.getElementById('member-grade-level').value : '',
+    college_year: educationLevel === 'College' ? document.getElementById('member-college-year').value : '',
+    college_program: PROGRAM_LABELS[educationLevel] ? document.getElementById('member-college-program').value.trim() : '',
     talents_skills: memberType === 'Member' ? document.getElementById('member-talents').value.trim() : '',
     desired_ministry: memberType === 'Member' ? getCheckedMinistries('ministry-desired-group').join(', ') : '',
     cellphone: document.getElementById('member-cellphone').value.trim(),
@@ -645,17 +786,32 @@ function openProfileModal(id){
          onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
     <div class="profile-name">${escapeHtml(m.name)}</div>
     <div class="profile-tags">
-      <span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>${escapeHtml(m.status || 'Active')}
-      ${m.is_scholar ? '<span class="scholar-tag">Scholar</span>' : ''}
+      <span class="status-text ${isActive ? 'active' : 'inactive'}">${escapeHtml(m.status || 'Active')}</span>
+      ${m.is_scholar ? `<span class="scholar-tag ${isActive ? 'active' : 'inactive'}">Scholar</span>` : ''}
     </div>
     <div class="profile-section">
       <div class="label">Type &amp; age</div>
       <div class="value">${escapeHtml(m.member_type || 'Member')}${age !== null ? ' &middot; ' + age + ' yrs old' : ''}</div>
     </div>
+    ${m.birthdate ? `
+    <div class="profile-section">
+      <div class="label">Birthday</div>
+      <div class="value">${formatDateLong(m.birthdate)}</div>
+    </div>` : ''}
     <div class="profile-section">
       <div class="label">Current ministry</div>
       <div class="value">${escapeHtml(m.ministry || 'None yet')}</div>
     </div>
+    ${m.is_baptized ? `
+    <div class="profile-section">
+      <div class="label">Baptism</div>
+      <div class="value">Baptized${m.baptism_date ? ' &middot; ' + formatDateLong(m.baptism_date) : ''}</div>
+    </div>` : ''}
+    ${(m.education_level) ? `
+    <div class="profile-section">
+      <div class="label">Education</div>
+      <div class="value">${buildEducationLine(m)}</div>
+    </div>` : ''}
     ${m.talents_skills ? `
     <div class="profile-section">
       <div class="label">Talents and skills</div>
