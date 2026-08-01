@@ -371,6 +371,56 @@
   .attend-list-item.clickable:hover{color:var(--rose);}
   .attend-list-item.absent{color:var(--muted);}
 
+  /* Collapsible section "cards" — Scholars and Attendance report panels get
+     a clear bordered container so their contents read as one grouped block */
+  .toggle-panel-group{
+    border:1px solid var(--ink-3);
+    border-radius:12px;
+    margin-bottom:14px;
+    overflow:hidden;
+    background:rgba(255,255,255,0.015);
+  }
+  body.light-theme .toggle-panel-group{background:rgba(0,0,0,0.015);}
+  .toggle-panel-group .filter-toggle-btn{
+    padding:14px 16px;
+    margin-bottom:0;
+    font-size:14px;
+    font-weight:600;
+    color:var(--ivory);
+  }
+  .toggle-panel-group > .collapsible-panel{
+    padding:0 16px 16px;
+  }
+  .toggle-panel-group > .collapsible-panel.show{
+    border-top:1px solid var(--ink-3);
+    padding-top:16px;
+  }
+
+  .standalone-panel{
+    border:1px solid var(--ink-3);
+    border-radius:12px;
+    margin-bottom:14px;
+    padding:16px;
+    background:rgba(255,255,255,0.015);
+  }
+  body.light-theme .standalone-panel{background:rgba(0,0,0,0.015);}
+
+  /* Birthday celebrants list */
+  .birthday-greeting{
+    text-align:center; color:var(--muted); font-size:13px;
+    margin:0 0 14px;
+  }
+  .birthday-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 4px; font-size:13.5px; color:var(--ivory);
+    border-bottom:1px solid var(--ink-3);
+  }
+  .birthday-item:last-child{border-bottom:none;}
+  .birthday-item-date{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--gold-soft);
+    flex-shrink:0; margin-left:10px;
+  }
+
   .report-suggestions{
     display:none; background:var(--ink-2); border:1px solid var(--ink-3);
     border-radius:10px; margin:-4px 0 12px; max-height:180px; overflow-y:auto;
@@ -384,10 +434,23 @@
     margin-bottom:10px;
   }
   .report-hint{font-size:12px; color:var(--muted); margin:-4px 0 10px;}
-  .month-row{cursor:pointer; border-radius:8px; padding:6px 8px; margin:0 -8px 10px; transition:background .15s;}
-  .month-row:hover{background:var(--ink-2);}
-  .month-row.selected{background:var(--ink-2);}
-  .month-row.selected .ministry-bar-fill{background:var(--gold);}
+  .month-select-list{
+    background:var(--ink-2); border:1px solid var(--ink-3); border-radius:10px;
+    margin:-4px 0 14px; max-height:280px; overflow-y:auto;
+  }
+  .month-option{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:transparent; border:none; border-bottom:1px solid var(--ink-3);
+    color:var(--ivory); font-family:'Inter',sans-serif; font-size:13.5px;
+    padding:11px 14px; cursor:pointer; text-align:left;
+  }
+  .month-option:last-child{border-bottom:none;}
+  .month-option:hover{background:var(--ink-3);}
+  .month-option.selected{color:var(--gold-soft); font-weight:600;}
+  .month-option-count{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted);
+  }
+  .month-option.selected .month-option-count{color:var(--gold-soft);}
   .month-date-group{
     background:var(--ink-2); border:1px solid var(--ink-3); border-radius:10px;
     padding:12px 14px; margin-bottom:10px;
@@ -395,17 +458,35 @@
   .month-date-header{
     display:flex; justify-content:space-between; align-items:center;
     font-family:'Fraunces',serif; font-weight:600; font-size:14px;
-    color:var(--ivory); margin-bottom:8px;
+    color:var(--ivory); cursor:pointer;
   }
+  .month-date-header-left{display:inline-flex; align-items:center; gap:6px;}
+  .month-date-arrow{color:var(--muted); transition:transform .15s; flex-shrink:0;}
+  .month-date-arrow.open{transform:rotate(180deg);}
   .month-date-header span:last-child{
     font-family:'JetBrains Mono',monospace; font-weight:400; font-size:12px; color:var(--gold-soft);
+  }
+  .month-date-columns{display:none; grid-template-columns:1fr 1fr; gap:16px; margin-top:10px;}
+  .month-date-columns.show{display:grid;}
+  @media (max-width:520px){
+    .month-date-columns.show{grid-template-columns:1fr;}
+  }
+  .month-date-col-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--muted); margin-bottom:6px;
   }
   .month-date-member-row{
     display:flex; justify-content:space-between; align-items:center;
     padding:7px 0; border-bottom:1px solid var(--ink-3); font-size:13px; color:var(--ivory);
   }
   .month-date-member-row:last-child{border-bottom:none;}
-  .month-remove-btn{width:26px; height:26px; font-size:13px; flex-shrink:0;}
+  .month-date-absent-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-bottom:1px solid var(--ink-3); font-size:13px; color:var(--muted);
+  }
+  .month-date-absent-row:last-child{border-bottom:none;}
+  .month-date-empty{color:var(--muted); font-size:12.5px; padding:6px 0;}
+  .month-remove-btn, .month-add-btn, .scholar-remove-btn, .scholar-add-btn{width:26px; height:26px; font-size:13px; flex-shrink:0;}
 
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-thumb{background:var(--ink-3);border-radius:4px;}

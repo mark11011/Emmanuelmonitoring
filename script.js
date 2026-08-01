@@ -641,23 +641,8 @@ document.getElementById('filter-toggle-btn').addEventListener('click', function(
   this.classList.toggle('open');
 });
 
-document.getElementById('ministry-toggle-btn').addEventListener('click', function(){
-  document.getElementById('ministry-breakdown').classList.toggle('show');
-  this.classList.toggle('open');
-});
-
 document.getElementById('scholar-toggle-btn').addEventListener('click', function(){
-  document.getElementById('scholar-breakdown').classList.toggle('show');
-  this.classList.toggle('open');
-});
-
-document.getElementById('present-toggle-btn').addEventListener('click', function(){
-  document.getElementById('present-list').classList.toggle('show');
-  this.classList.toggle('open');
-});
-
-document.getElementById('absent-toggle-btn').addEventListener('click', function(){
-  document.getElementById('absent-list').classList.toggle('show');
+  document.getElementById('scholar-panel').classList.toggle('show');
   this.classList.toggle('open');
 });
 
@@ -884,92 +869,56 @@ function renderDashboard(){
   if(!dateInput.value) dateInput.value = todayStr();
   const date = dateInput.value;
   const presentIds = attendance.filter(r=>r.date === date).map(r=>r.memberId);
-  const presentMembers = members.filter(m=>presentIds.includes(m.id));
-  const absentMembers = members.filter(m=>!presentIds.includes(m.id));
+  const presentCount = members.filter(m=>presentIds.includes(m.id)).length;
 
-  document.getElementById('stat-present').textContent = presentMembers.length;
+  document.getElementById('stat-present').textContent = presentCount;
   document.getElementById('stat-total').textContent = members.length;
-  const pct = members.length ? Math.round((presentMembers.length / members.length) * 100) : 0;
+  const pct = members.length ? Math.round((presentCount / members.length) * 100) : 0;
   document.getElementById('stat-pct').textContent = pct + '%';
 
-  const byMinistry = {};
-  members.forEach(m=>{
-    const list = (m.ministry || '').split(',').map(s=>s.trim()).filter(Boolean);
-    const keys = list.length ? list : ['None yet'];
-    keys.forEach(key=>{
-      byMinistry[key] = byMinistry[key] || {total:0, present:0};
-      byMinistry[key].total++;
-      if(presentIds.includes(m.id)) byMinistry[key].present++;
-    });
-  });
-  const breakdown = document.getElementById('ministry-breakdown');
-  breakdown.innerHTML = '';
-  Object.entries(byMinistry).forEach(([name, v])=>{
-    const rowPct = v.total ? Math.round((v.present / v.total) * 100) : 0;
-    const div = document.createElement('div');
-    div.className = 'ministry-bar-row';
-    div.innerHTML = `
-      <div class="ministry-bar-label"><span>${escapeHtml(name)}</span><span>${v.present}/${v.total}</span></div>
-      <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${rowPct}%"></div></div>
-    `;
-    breakdown.appendChild(div);
-  });
-  if(Object.keys(byMinistry).length === 0){
-    breakdown.innerHTML = '<div class="empty">No members yet.</div>';
-  }
-
-  const scholarMembers = members.filter(m => m.is_scholar);
-  const scholarPresentCount = scholarMembers.filter(m => presentIds.includes(m.id)).length;
-  const scholarBreakdown = document.getElementById('scholar-breakdown');
-  if(scholarMembers.length === 0){
-    scholarBreakdown.innerHTML = '<div class="empty">No scholars on the roster yet.</div>';
-  }else{
-    const scholarPct = Math.round((scholarPresentCount / scholarMembers.length) * 100);
-    scholarBreakdown.innerHTML = `
-      <div class="ministry-bar-row">
-        <div class="ministry-bar-label"><span>Scholars</span><span>${scholarPresentCount}/${scholarMembers.length}</span></div>
-        <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${scholarPct}%"></div></div>
-      </div>
-    `;
-  }
-
-  const presentList = document.getElementById('present-list');
-  presentList.innerHTML = '';
-  if(presentMembers.length === 0){
-    presentList.innerHTML = '<li class="empty" style="list-style:none; padding:6px 0;">No one checked in yet for this date.</li>';
-  }else{
-    presentMembers.forEach(m=>{
-      const li = document.createElement('li');
-      li.className = 'attend-list-item clickable';
-      li.textContent = m.name;
-      li.title = 'Click to mark absent';
-      li.addEventListener('click', async ()=>{
-        if(!confirm(`Mark ${m.name} as absent for this date?`)) return;
-        const ok = await deleteAttendance(m.id, date);
-        if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
-        const { data, error } = await window.db.from('attendance').select('*');
-        if(!error){
-          attendance = (data || []).map(r => ({ memberId: r.member_id, date: r.date, timestamp: r.ts }));
-        }else{
-          attendance = attendance.filter(r => !(r.memberId === m.id && r.date === date));
-        }
-        renderDashboard();
-        renderCheckin();
-      });
-      presentList.appendChild(li);
-    });
-  }
-
-  const absentList = document.getElementById('absent-list');
-  absentList.innerHTML = absentMembers.length
-    ? absentMembers.map(m=>`<li class="attend-list-item absent">${escapeHtml(m.name)}</li>`).join('')
-    : '<li class="empty" style="list-style:none; padding:6px 0;">Everyone is accounted for.</li>';
-
   renderReport();
+  renderScholarReport();
+  renderBirthdayCelebrants();
 }
 document.getElementById('dash-date').addEventListener('change', renderDashboard);
 
 // ---- Attendance report: by month, per year ----
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ---- Birthday celebrants for the current month ----
+function renderBirthdayCelebrants(){
+  const container = document.getElementById('birthday-celebrants');
+  if(!container) return;
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const celebrants = members
+    .filter(m => {
+      if(!m.birthdate) return false;
+      const bd = new Date(m.birthdate + 'T00:00:00');
+      return !isNaN(bd.getTime()) && bd.getMonth() === currentMonth;
+    })
+    .map(m => {
+      const bd = new Date(m.birthdate + 'T00:00:00');
+      return { member: m, day: bd.getDate(), turningAge: currentYear - bd.getFullYear() };
+    })
+    .sort((a,b) => a.day - b.day);
+
+  if(celebrants.length === 0){
+    container.innerHTML = `<div class="empty" style="padding:12px 0;">No birthdays in ${MONTH_NAMES[currentMonth]}.</div>`;
+    return;
+  }
+
+  container.innerHTML = celebrants.map(c => `
+    <div class="birthday-item">
+      <span>${escapeHtml(c.member.name)}</span>
+      <span class="birthday-item-date">${MONTH_NAMES[currentMonth].slice(0,3)} ${c.day}</span>
+    </div>
+  `).join('');
+}
+
 function renderReport(){
   const yearSelect = document.getElementById('report-year');
   if(!yearSelect) return;
@@ -983,7 +932,6 @@ function renderReport(){
   yearSelect.value = years.includes(prevValue) ? prevValue : years[0];
   const selectedYear = yearSelect.value;
 
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const counts = new Array(12).fill(0);
   attendance.forEach(r=>{
     if(r.date && r.date.slice(0,4) === selectedYear){
@@ -991,35 +939,52 @@ function renderReport(){
       if(monthIdx >= 0 && monthIdx < 12) counts[monthIdx]++;
     }
   });
-  const maxCount = Math.max(1, ...counts);
 
-  document.getElementById('report-breakdown').innerHTML = monthNames.map((name, i)=>{
-    const pct = Math.round((counts[i] / maxCount) * 100);
+  const list = document.getElementById('month-select-list');
+  list.innerHTML = MONTH_NAMES.map((name, i)=>{
     const isSelected = selectedReportMonth && selectedReportMonth.year === selectedYear && selectedReportMonth.monthIndex === i;
     return `
-      <div class="ministry-bar-row month-row${isSelected ? ' selected' : ''}" data-month="${i}">
-        <div class="ministry-bar-label"><span>${name}</span><span>${counts[i]}</span></div>
-        <div class="ministry-bar-track"><div class="ministry-bar-fill" style="width:${pct}%"></div></div>
-      </div>
+      <button class="month-option${isSelected ? ' selected' : ''}" data-month="${i}" type="button">
+        <span>${name}</span>
+        <span class="month-option-count">${counts[i]}</span>
+      </button>
     `;
   }).join('');
 
-  document.querySelectorAll('#report-breakdown .month-row').forEach(row=>{
-    row.addEventListener('click', ()=>{
-      const monthIdx = parseInt(row.dataset.month, 10);
-      const isSame = selectedReportMonth && selectedReportMonth.year === selectedYear && selectedReportMonth.monthIndex === monthIdx;
-      selectedReportMonth = isSame ? null : { year: selectedYear, monthIndex: monthIdx };
-      renderReport();
+  list.querySelectorAll('.month-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const monthIdx = parseInt(btn.dataset.month, 10);
+      selectedReportMonth = { year: selectedYear, monthIndex: monthIdx };
+      list.classList.remove('show');
+      document.getElementById('month-select-toggle').classList.remove('open');
+      updateMonthSelectLabel(selectedYear);
+      renderMonthDetail(selectedYear);
     });
   });
 
+  updateMonthSelectLabel(selectedYear);
   renderMonthDetail(selectedYear);
   renderMemberReport();
 }
 document.getElementById('report-year').addEventListener('change', renderReport);
 
+function updateMonthSelectLabel(selectedYear){
+  const label = document.getElementById('month-select-label');
+  if(!label) return;
+  if(selectedReportMonth && selectedReportMonth.year === selectedYear){
+    label.textContent = `${MONTH_NAMES[selectedReportMonth.monthIndex]} ${selectedYear}`;
+  }else{
+    label.textContent = 'Select a month';
+  }
+}
+document.getElementById('month-select-toggle').addEventListener('click', function(){
+  document.getElementById('month-select-list').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
 // ---- Attendance report: per-date attendee breakdown for a selected month ----
 let selectedReportMonth = null;
+let expandedReportDates = new Set();
 
 function renderMonthDetail(selectedYear){
   const container = document.getElementById('month-detail');
@@ -1029,7 +994,6 @@ function renderMonthDetail(selectedYear){
     return;
   }
   const monthIdx = selectedReportMonth.monthIndex;
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const prefix = `${selectedYear}-${String(monthIdx + 1).padStart(2,'0')}`;
 
   const dateGroups = {};
@@ -1042,39 +1006,73 @@ function renderMonthDetail(selectedYear){
   const dates = Object.keys(dateGroups).sort();
 
   if(dates.length === 0){
-    container.innerHTML = `<div class="empty" style="padding:16px 0;">No check-ins recorded for ${monthNames[monthIdx]} ${selectedYear}.</div>`;
+    container.innerHTML = `<div class="empty" style="padding:16px 0;">No check-ins recorded for ${MONTH_NAMES[monthIdx]} ${selectedYear}.</div>`;
     return;
   }
 
   container.innerHTML = `
-    <div class="section-title">${monthNames[monthIdx]} ${selectedYear} &middot; attendees by date</div>
+    <div class="section-title">${MONTH_NAMES[monthIdx]} ${selectedYear} &middot; attendees by date</div>
     ${dates.map(date=>{
-      const records = dateGroups[date].slice().sort((a,b)=>{
-        const ma = members.find(x=>x.id===a.memberId);
-        const mb = members.find(x=>x.id===b.memberId);
-        return (ma ? ma.name : '').localeCompare(mb ? mb.name : '');
-      });
+      const presentIdsForDate = dateGroups[date].map(r=>r.memberId);
+      const presentMembersForDate = members.filter(m=>presentIdsForDate.includes(m.id))
+        .slice().sort((a,b)=>a.name.localeCompare(b.name));
+      const absentMembersForDate = members.filter(m=>!presentIdsForDate.includes(m.id))
+        .slice().sort((a,b)=>a.name.localeCompare(b.name));
       const dateLabel = formatDateLong(date) || date;
+      const isOpen = expandedReportDates.has(date);
       return `
         <div class="month-date-group" data-date="${date}">
-          <div class="month-date-header">
-            <span>${dateLabel}</span>
-            <span>${records.length} present</span>
+          <div class="month-date-header" data-date="${date}">
+            <span class="month-date-header-left">
+              ${dateLabel}
+              <svg class="filter-arrow month-date-arrow${isOpen ? ' open' : ''}" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>${presentMembersForDate.length} present</span>
           </div>
-          ${records.map(r=>{
-            const m = members.find(x=>x.id===r.memberId);
-            const name = m ? m.name : 'Unknown member';
-            return `
-              <div class="month-date-member-row" data-member="${r.memberId}" data-date="${date}">
-                <span>${escapeHtml(name)}</span>
-                <button class="icon-btn month-remove-btn" title="Remove this check-in">&times;</button>
-              </div>
-            `;
-          }).join('')}
+          <div class="month-date-columns${isOpen ? ' show' : ''}">
+            <div class="month-date-col">
+              <div class="month-date-col-title">Present</div>
+              ${presentMembersForDate.length ? presentMembersForDate.map(m=>`
+                <div class="month-date-member-row" data-member="${m.id}" data-date="${date}">
+                  <span>${escapeHtml(m.name)}</span>
+                  <button class="icon-btn month-remove-btn" title="Mark absent">&times;</button>
+                </div>
+              `).join('') : `<div class="month-date-empty">No one yet.</div>`}
+            </div>
+            <div class="month-date-col">
+              <div class="month-date-col-title">Absent</div>
+              ${absentMembersForDate.length ? absentMembersForDate.map(m=>`
+                <div class="month-date-absent-row" data-member="${m.id}" data-date="${date}">
+                  <span>${escapeHtml(m.name)}</span>
+                  <button class="icon-btn month-add-btn" title="Mark present">+</button>
+                </div>
+              `).join('') : `<div class="month-date-empty">Everyone accounted for.</div>`}
+            </div>
+          </div>
         </div>
       `;
     }).join('')}
   `;
+
+  container.querySelectorAll('.month-date-header').forEach(header=>{
+    header.addEventListener('click', ()=>{
+      const date = header.dataset.date;
+      const group = header.closest('.month-date-group');
+      const columns = group.querySelector('.month-date-columns');
+      const arrow = header.querySelector('.month-date-arrow');
+      if(expandedReportDates.has(date)){
+        expandedReportDates.delete(date);
+        columns.classList.remove('show');
+        arrow.classList.remove('open');
+      }else{
+        expandedReportDates.add(date);
+        columns.classList.add('show');
+        arrow.classList.add('open');
+      }
+    });
+  });
 
   container.querySelectorAll('.month-remove-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1082,10 +1080,225 @@ function renderMonthDetail(selectedYear){
       const memberId = row.dataset.member;
       const date = row.dataset.date;
       const m = members.find(x=>x.id === memberId);
-      if(!confirm(`Remove ${m ? m.name : 'this attendee'}'s check-in for ${formatDateLong(date) || date}?`)) return;
+      if(!confirm(`Mark ${m ? m.name : 'this attendee'} as absent for ${formatDateLong(date) || date}?`)) return;
       const ok = await deleteAttendance(memberId, date);
-      if(!ok){ alert('Could not remove attendance. Check your connection.'); return; }
+      if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
       attendance = attendance.filter(r => !(r.memberId === memberId && r.date === date));
+      renderDashboard();
+      renderCheckin();
+    });
+  });
+
+  container.querySelectorAll('.month-add-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('.month-date-absent-row');
+      const memberId = row.dataset.member;
+      const date = row.dataset.date;
+      const m = members.find(x=>x.id === memberId);
+      if(!confirm(`Mark ${m ? m.name : 'this member'} as present for ${formatDateLong(date) || date}?`)) return;
+      const ts = Date.now();
+      const ok = await insertAttendance(memberId, date, ts);
+      if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
+      attendance.push({memberId, date, timestamp: ts});
+      renderDashboard();
+      renderCheckin();
+    });
+  });
+}
+
+// ---- Scholars report: by month, per year (scholars only) ----
+let selectedScholarReportMonth = null;
+let expandedScholarReportDates = new Set();
+
+function renderScholarReport(){
+  const yearSelect = document.getElementById('scholar-report-year');
+  if(!yearSelect) return;
+
+  const scholarMembers = members.filter(m => m.is_scholar);
+  const scholarIds = scholarMembers.map(m => m.id);
+  const scholarAttendance = attendance.filter(r => scholarIds.includes(r.memberId));
+
+  const yearsFromData = Array.from(new Set(scholarAttendance.map(r => (r.date || '').slice(0,4)).filter(Boolean)));
+  const currentYear = String(new Date().getFullYear());
+  const years = Array.from(new Set([...yearsFromData, currentYear])).sort((a,b) => b.localeCompare(a));
+
+  const prevValue = yearSelect.value;
+  yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  yearSelect.value = years.includes(prevValue) ? prevValue : years[0];
+  const selectedYear = yearSelect.value;
+
+  if(scholarMembers.length === 0){
+    document.getElementById('scholar-month-select-list').innerHTML = '';
+    document.getElementById('scholar-month-detail').innerHTML = '<div class="empty" style="padding:16px 0;">No scholars on the roster yet.</div>';
+    updateScholarMonthSelectLabel(selectedYear);
+    return;
+  }
+
+  const counts = new Array(12).fill(0);
+  scholarAttendance.forEach(r=>{
+    if(r.date && r.date.slice(0,4) === selectedYear){
+      const monthIdx = parseInt(r.date.slice(5,7), 10) - 1;
+      if(monthIdx >= 0 && monthIdx < 12) counts[monthIdx]++;
+    }
+  });
+
+  const list = document.getElementById('scholar-month-select-list');
+  list.innerHTML = MONTH_NAMES.map((name, i)=>{
+    const isSelected = selectedScholarReportMonth && selectedScholarReportMonth.year === selectedYear && selectedScholarReportMonth.monthIndex === i;
+    return `
+      <button class="month-option${isSelected ? ' selected' : ''}" data-month="${i}" type="button">
+        <span>${name}</span>
+        <span class="month-option-count">${counts[i]}</span>
+      </button>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.month-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const monthIdx = parseInt(btn.dataset.month, 10);
+      selectedScholarReportMonth = { year: selectedYear, monthIndex: monthIdx };
+      list.classList.remove('show');
+      document.getElementById('scholar-month-select-toggle').classList.remove('open');
+      updateScholarMonthSelectLabel(selectedYear);
+      renderScholarMonthDetail(selectedYear);
+    });
+  });
+
+  updateScholarMonthSelectLabel(selectedYear);
+  renderScholarMonthDetail(selectedYear);
+}
+document.getElementById('scholar-report-year').addEventListener('change', renderScholarReport);
+
+function updateScholarMonthSelectLabel(selectedYear){
+  const label = document.getElementById('scholar-month-select-label');
+  if(!label) return;
+  if(selectedScholarReportMonth && selectedScholarReportMonth.year === selectedYear){
+    label.textContent = `${MONTH_NAMES[selectedScholarReportMonth.monthIndex]} ${selectedYear}`;
+  }else{
+    label.textContent = 'Select a month';
+  }
+}
+document.getElementById('scholar-month-select-toggle').addEventListener('click', function(){
+  document.getElementById('scholar-month-select-list').classList.toggle('show');
+  this.classList.toggle('open');
+});
+
+function renderScholarMonthDetail(selectedYear){
+  const container = document.getElementById('scholar-month-detail');
+  if(!container) return;
+  if(!selectedScholarReportMonth || selectedScholarReportMonth.year !== selectedYear){
+    container.innerHTML = '';
+    return;
+  }
+  const monthIdx = selectedScholarReportMonth.monthIndex;
+  const prefix = `${selectedYear}-${String(monthIdx + 1).padStart(2,'0')}`;
+  const scholarMembers = members.filter(m => m.is_scholar);
+  const scholarIds = scholarMembers.map(m => m.id);
+
+  const dateGroups = {};
+  attendance.forEach(r=>{
+    if(r.date && r.date.startsWith(prefix) && scholarIds.includes(r.memberId)){
+      dateGroups[r.date] = dateGroups[r.date] || [];
+      dateGroups[r.date].push(r);
+    }
+  });
+  const dates = Object.keys(dateGroups).sort();
+
+  if(dates.length === 0){
+    container.innerHTML = `<div class="empty" style="padding:16px 0;">No scholar check-ins recorded for ${MONTH_NAMES[monthIdx]} ${selectedYear}.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="section-title">${MONTH_NAMES[monthIdx]} ${selectedYear} &middot; scholars by date</div>
+    ${dates.map(date=>{
+      const presentIdsForDate = dateGroups[date].map(r=>r.memberId);
+      const presentScholarsForDate = scholarMembers.filter(m=>presentIdsForDate.includes(m.id))
+        .slice().sort((a,b)=>a.name.localeCompare(b.name));
+      const absentScholarsForDate = scholarMembers.filter(m=>!presentIdsForDate.includes(m.id))
+        .slice().sort((a,b)=>a.name.localeCompare(b.name));
+      const dateLabel = formatDateLong(date) || date;
+      const isOpen = expandedScholarReportDates.has(date);
+      return `
+        <div class="month-date-group" data-date="${date}">
+          <div class="month-date-header" data-date="${date}">
+            <span class="month-date-header-left">
+              ${dateLabel}
+              <svg class="filter-arrow month-date-arrow${isOpen ? ' open' : ''}" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>${presentScholarsForDate.length} present</span>
+          </div>
+          <div class="month-date-columns${isOpen ? ' show' : ''}">
+            <div class="month-date-col">
+              <div class="month-date-col-title">Present</div>
+              ${presentScholarsForDate.length ? presentScholarsForDate.map(m=>`
+                <div class="month-date-member-row" data-member="${m.id}" data-date="${date}">
+                  <span>${escapeHtml(m.name)}</span>
+                  <button class="icon-btn scholar-remove-btn" title="Mark absent">&times;</button>
+                </div>
+              `).join('') : `<div class="month-date-empty">No one yet.</div>`}
+            </div>
+            <div class="month-date-col">
+              <div class="month-date-col-title">Absent</div>
+              ${absentScholarsForDate.length ? absentScholarsForDate.map(m=>`
+                <div class="month-date-absent-row" data-member="${m.id}" data-date="${date}">
+                  <span>${escapeHtml(m.name)}</span>
+                  <button class="icon-btn scholar-add-btn" title="Mark present">+</button>
+                </div>
+              `).join('') : `<div class="month-date-empty">Everyone accounted for.</div>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  container.querySelectorAll('.month-date-header').forEach(header=>{
+    header.addEventListener('click', ()=>{
+      const date = header.dataset.date;
+      const group = header.closest('.month-date-group');
+      const columns = group.querySelector('.month-date-columns');
+      const arrow = header.querySelector('.month-date-arrow');
+      if(expandedScholarReportDates.has(date)){
+        expandedScholarReportDates.delete(date);
+        columns.classList.remove('show');
+        arrow.classList.remove('open');
+      }else{
+        expandedScholarReportDates.add(date);
+        columns.classList.add('show');
+        arrow.classList.add('open');
+      }
+    });
+  });
+
+  container.querySelectorAll('.scholar-remove-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('.month-date-member-row');
+      const memberId = row.dataset.member;
+      const date = row.dataset.date;
+      const m = members.find(x=>x.id === memberId);
+      if(!confirm(`Mark ${m ? m.name : 'this scholar'} as absent for ${formatDateLong(date) || date}?`)) return;
+      const ok = await deleteAttendance(memberId, date);
+      if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
+      attendance = attendance.filter(r => !(r.memberId === memberId && r.date === date));
+      renderDashboard();
+      renderCheckin();
+    });
+  });
+
+  container.querySelectorAll('.scholar-add-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('.month-date-absent-row');
+      const memberId = row.dataset.member;
+      const date = row.dataset.date;
+      const m = members.find(x=>x.id === memberId);
+      if(!confirm(`Mark ${m ? m.name : 'this scholar'} as present for ${formatDateLong(date) || date}?`)) return;
+      const ts = Date.now();
+      const ok = await insertAttendance(memberId, date, ts);
+      if(!ok){ alert('Could not update attendance. Check your connection.'); return; }
+      attendance.push({memberId, date, timestamp: ts});
       renderDashboard();
       renderCheckin();
     });
