@@ -6,83 +6,41 @@
 <title>Emmanuel Presbyterian Montalban Church — Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="emmanuelattendance.css">
 <link rel="icon" type="image/png" href="images/emmanuellogo-square.png">
-
-<!-- PWA: installability -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A44">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Emmanuel">
-<link rel="apple-touch-icon" href="images/icon-192.png">
 </head>
 <body>
+<header class="site-header">
+  <div class="header-inner">
+    <a href="main.html" class="brand">
+      <span class="brand-logo"><img src="images/emmanuellogo-square.png" alt="Emmanuel Presbyterian Montalban Church logo"></span>
+      <span class="brand-name">Emmanuel Presbyterian<span>Montalban Church</span></span>
+    </a>
+    <nav class="main-nav">
+      <a href="main.html#about">About</a>
+      <a href="main.html#family">Ministries</a>
+      <a href="emmanuelattendance.html" class="nav-current">Member Portal</a>
+    </nav>
+    <label class="theme-switch" title="Toggle dark mode">
+      <input type="checkbox" id="theme-toggle-checkbox" aria-label="Toggle dark mode">
+      <span class="theme-switch-slider"></span>
+    </label>
+    <button class="menu-btn" id="menu-toggle" aria-label="Menu">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+        <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div class="mobile-nav" id="mobile-nav">
+    <a href="main.html#about">About</a>
+    <a href="main.html#family">Ministries</a>
+    <a href="emmanuelattendance.html" class="nav-current">Member Portal</a>
+  </div>
+</header>
+
 <div class="app">
-  <div class="header">
-    <img src="images/emmanuellogo-square.png" alt="Emmanuel Presbyterian Montalban Church logo" class="logo">
-    <div class="header-title">
-      <h1>Emmanuel Presbyterian Montalban Church</h1>
-      <p>Attendance and member registry</p>
-    </div>
-    <div class="menu-wrapper">
-      <button id="menu-toggle" class="menu-btn" title="Menu" aria-label="Menu">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <div class="dropdown-menu" id="dropdown-menu">
-        <div class="dropdown-row" id="install-row" style="display:none;">
-          <span>Install app</span>
-          <button class="btn-secondary" id="install-btn" style="padding:6px 14px;font-size:12.5px;">Download</button>
-        </div>
-        <div class="dropdown-divider" id="install-divider" style="display:none;"></div>
-
-        <div class="dropdown-row">
-          <span>Dark mode</span>
-          <label class="switch">
-            <input type="checkbox" id="theme-toggle-checkbox">
-            <span class="switch-slider"></span>
-          </label>
-        </div>
-        <div class="dropdown-divider"></div>
-
-        <button class="dropdown-link-row" id="help-toggle">
-          <span>How to use this app</span>
-          <svg class="filter-arrow" id="help-arrow" viewBox="0 0 24 24" width="14" height="14">
-            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="dropdown-panel" id="help-panel">
-          <p><strong>Check in</strong> — members search and tap their own name to mark themselves present.</p>
-          <p><strong>Roster</strong> — leaders add, edit, or remove members. Requires the leader passcode.</p>
-          <p><strong>Dashboard</strong> — leaders see who's present, ministry and scholar breakdowns, and attendance history by date.</p>
-        </div>
-        <div class="dropdown-divider"></div>
-
-        <button class="dropdown-link-row" id="passcode-toggle">
-          <span>Change leader passcode</span>
-          <svg class="filter-arrow" id="passcode-arrow" viewBox="0 0 24 24" width="14" height="14">
-            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="dropdown-panel" id="passcode-panel">
-          <p id="passcode-panel-msg">Unlock the Roster or Dashboard with the current passcode first, then come back here to set a new one.</p>
-          <div class="dropdown-passcode-form" id="passcode-change-form" style="display:none;">
-            <input type="password" id="new-passcode-input" placeholder="New passcode" autocomplete="off">
-            <input type="password" id="new-passcode-confirm" placeholder="Confirm new passcode" autocomplete="off">
-            <button class="btn-primary" id="save-new-passcode-btn">Save new passcode</button>
-            <p class="lock-error" id="passcode-change-error"></p>
-          </div>
-        </div>
-        <div class="dropdown-divider"></div>
-
-        <a href="https://www.facebook.com/kasamachurch" target="_blank" rel="noopener noreferrer" class="dropdown-link-row">
-          <span>Report an issue</span>
-        </a>
-      </div>
-    </div>
+  <div class="page-subhead">
+    <p class="page-subhead-title">Attendance and member registry</p>
   </div>
 
   <div class="layout">
@@ -220,11 +178,22 @@
   </div>
 </div>
 
-<footer class="church-footer">
-  <span class="church-footer-name">Emmanuel Presbyterian Montalban Church</span>
-  <span class="church-footer-address">Kasama Mission Center, Villa San Isidro, San Isidro, Rodriguez, Philippines, 1860</span>
-  <a href="https://www.facebook.com/kasamachurch" target="_blank" rel="noopener noreferrer" class="church-footer-fb">Facebook</a>
-</footer>
+<div class="info-strip">
+  <div class="info-inner">
+    <div class="info-item">
+      <div class="label">Service Time</div>
+      <div class="value">Sunday Mornings<br>10:00 AM</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Location</div>
+      <div class="value">Kasama Mission Center,<br>Villa San Isidro, San Isidro,<br>Rodriguez, Philippines 1860</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Stay Connected</div>
+      <div class="value">Follow along and get updates on<br><a href="https://www.facebook.com/kasamachurch" target="_blank" rel="noopener noreferrer">Facebook &rarr;</a></div>
+    </div>
+  </div>
+</div>
 
 <!-- Member modal -->
 <div class="modal-backdrop" id="member-modal">
@@ -351,6 +320,6 @@ window.db = window.supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvaHlyeWN4cGFqcHliamZoanp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyOTQyMjUsImV4cCI6MjEwMDg3MDIyNX0.DfrnTGaC5XXmYKRyjpy9dvk3Yg9bXoOAhdt9H1HJ8gs"
 );
 </script>
-<script src="script.js"></script>
+<script src="emmanuelattendance.js"></script>
 </body>
 </html>

@@ -5,130 +5,34 @@ let leaderUnlocked = false;
 let rosterFilter = 'All';
 const todayStr = () => new Date().toISOString().slice(0,10);
 
-// ---- PWA: service worker + install prompt ----
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(e=>console.error('sw register failed', e));
-  });
-}
-
-let deferredInstallPrompt = null;
-const installRow = document.getElementById('install-row');
-const installDivider = document.getElementById('install-divider');
-const installBtn = document.getElementById('install-btn');
-
-function isStandalone(){
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-window.addEventListener('beforeinstallprompt', (e)=>{
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  if(!isStandalone()){
-    installRow.style.display = 'flex';
-    installDivider.style.display = 'block';
-  }
-});
-
-if(installBtn){
-  installBtn.addEventListener('click', async ()=>{
-    if(!deferredInstallPrompt) return;
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    installRow.style.display = 'none';
-    installDivider.style.display = 'none';
-  });
-}
-
-window.addEventListener('appinstalled', ()=>{
-  installRow.style.display = 'none';
-  installDivider.style.display = 'none';
-  deferredInstallPrompt = null;
-});
-
-// iOS Safari has no beforeinstallprompt — show "Add to Home Screen" instructions instead.
-(function iosInstallHint(){
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  if(isIos && !isStandalone() && installRow){
-    installRow.style.display = 'flex';
-    installDivider.style.display = 'block';
-    installBtn.textContent = 'How to install';
-    installBtn.addEventListener('click', ()=>{
-      alert('To install: tap the Share icon in Safari, then "Add to Home Screen".');
-    });
-  }
-})();
-
-// ---- Theme toggle (per-device preference, not shared church data) ----
+// ---- Theme (shared with main.html via localStorage key 'theme-preference') ----
 function applyTheme(theme){
-  document.body.classList.toggle('light-theme', theme === 'light');
-  const checkbox = document.getElementById('theme-toggle-checkbox');
-  if(checkbox) checkbox.checked = (theme === 'dark');
+  document.body.classList.toggle('dark-theme', theme === 'dark');
+  const cb = document.getElementById('theme-toggle-checkbox');
+  if(cb) cb.checked = (theme === 'dark');
 }
 (function initTheme(){
   let saved = 'light';
   try{ saved = localStorage.getItem('theme-preference') || 'light'; }catch(e){}
   applyTheme(saved);
 })();
-document.getElementById('theme-toggle-checkbox').addEventListener('change', (e)=>{
-  const next = e.target.checked ? 'dark' : 'light';
-  try{ localStorage.setItem('theme-preference', next); }catch(e){}
-  applyTheme(next);
-});
 
-// ---- Header dropdown menu ----
+// ---- Site header: mobile menu + theme toggle ----
 const menuToggle = document.getElementById('menu-toggle');
-const dropdownMenu = document.getElementById('dropdown-menu');
-menuToggle.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  dropdownMenu.classList.toggle('show');
-});
-document.addEventListener('click', (e)=>{
-  if(!dropdownMenu.contains(e.target) && e.target !== menuToggle){
-    dropdownMenu.classList.remove('show');
-  }
-});
-
-// ---- Dropdown: help panel ----
-document.getElementById('help-toggle').addEventListener('click', function(){
-  document.getElementById('help-panel').classList.toggle('show');
-  this.classList.toggle('open');
-});
-
-// ---- Dropdown: change leader passcode ----
-document.getElementById('passcode-toggle').addEventListener('click', function(){
-  const panel = document.getElementById('passcode-panel');
-  const opening = !panel.classList.contains('show');
-  panel.classList.toggle('show');
-  this.classList.toggle('open');
-  if(opening){
-    const msg = document.getElementById('passcode-panel-msg');
-    const form = document.getElementById('passcode-change-form');
-    if(leaderUnlocked){
-      msg.style.display = 'none';
-      form.style.display = 'block';
-    }else{
-      msg.style.display = 'block';
-      form.style.display = 'none';
-    }
-  }
-});
-document.getElementById('save-new-passcode-btn').addEventListener('click', async ()=>{
-  const val = document.getElementById('new-passcode-input').value;
-  const confirmVal = document.getElementById('new-passcode-confirm').value;
-  const errEl = document.getElementById('passcode-change-error');
-  if(!val || val.length < 4){ errEl.textContent = 'Use at least 4 characters.'; return; }
-  if(val !== confirmVal){ errEl.textContent = 'Passcodes do not match.'; return; }
-  const hash = simpleHash(val);
-  const ok = await savePasscode(hash);
-  if(!ok){ errEl.textContent = 'Could not save. Check your connection.'; return; }
-  leaderPasscodeHash = hash;
-  errEl.style.color = 'var(--sage)';
-  errEl.textContent = 'Passcode updated.';
-  document.getElementById('new-passcode-input').value = '';
-  document.getElementById('new-passcode-confirm').value = '';
-});
+const mobileNav = document.getElementById('mobile-nav');
+if(menuToggle && mobileNav){
+  menuToggle.addEventListener('click', ()=>{
+    mobileNav.classList.toggle('open');
+  });
+}
+const themeCheckbox = document.getElementById('theme-toggle-checkbox');
+if(themeCheckbox){
+  themeCheckbox.addEventListener('change', (e)=>{
+    const next = e.target.checked ? 'dark' : 'light';
+    try{ localStorage.setItem('theme-preference', next); }catch(e){}
+    applyTheme(next);
+  });
+}
 
 const MINISTRIES = [
   'Pastoral Ministry','Diaconate','Administration','Prayer Ministry',
